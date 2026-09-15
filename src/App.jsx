@@ -2,12 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
 import { ref, onValue, set, update, push, remove } from "firebase/database";
 
-// ─── Constants & Helpers ──────────────────────────────────────────────────────
-const DEFAULT_THEME = {
-  bg:"#0F1117", card:"#1C1E2A", border:"#2A2D3E",
-  accent:"#6C63FF", accentLight:"#8B84FF", green:"#3DDC84",
-  text:"#F0F0F5", muted:"#8888AA", danger:"#FF6B6B",
+// ─── Thèmes ───────────────────────────────────────────────────────────────────
+const THEMES = {
+  cosmos:   { name:"🌌 Cosmos",   bg:"#0F1117", card:"#1C1E2A", border:"#2A2D3E", accent:"#6C63FF", accentLight:"#8B84FF", green:"#3DDC84", text:"#F0F0F5", muted:"#8888AA", danger:"#FF6B6B" },
+  atlantis: { name:"🌊 Atlantis", bg:"#0A1628", card:"#142035", border:"#1C2E42", accent:"#C9A844", accentLight:"#D4B85A", green:"#00C9A7", text:"#F0F0F5", muted:"#7AA0C4", danger:"#FF6B6B" },
+  ember:    { name:"🔥 Ember",    bg:"#1A0A0A", card:"#2A1010", border:"#3A1818", accent:"#FF6B2B", accentLight:"#FF8C5A", green:"#FFE66D", text:"#F0F0F5", muted:"#C47A7A", danger:"#FF4444" },
+  nebula:   { name:"🪐 Nebula",   bg:"#130A1E", card:"#1E1030", border:"#2A1840", accent:"#E91E8C", accentLight:"#F472B6", green:"#00E5FF", text:"#F0F0F5", muted:"#C084FC", danger:"#FF6B6B" },
+  obsidian: { name:"⚫ Obsidian", bg:"#080808", card:"#121212", border:"#1E1E1E", accent:"#CCCCCC", accentLight:"#E8E8E8", green:"#E8E8E8", text:"#F0F0F5", muted:"#888888", danger:"#FF6B6B" },
+  sakura:   { name:"🌸 Sakura",   bg:"#1A1018", card:"#251520", border:"#332030", accent:"#EC4899", accentLight:"#F472B6", green:"#4ADE80", text:"#F0F0F5", muted:"#F9A8D4", danger:"#FF6B6B" },
+  bamboo:   { name:"🌿 Bamboo",   bg:"#0A1A0F", card:"#102018", border:"#1A3020", accent:"#22C55E", accentLight:"#4ADE80", green:"#F59E0B", text:"#F0F0F5", muted:"#86EFAC", danger:"#FF6B6B" },
+  arctic:   { name:"🏔 Arctic",   bg:"#0A0F1A", card:"#101828", border:"#1A2535", accent:"#38BDF8", accentLight:"#7DD3FC", green:"#E0F2FE", text:"#F0F0F5", muted:"#93C5FD", danger:"#FF6B6B" },
+  autumn:   { name:"🍂 Autumn",   bg:"#1A0F08", card:"#2A1810", border:"#3A2015", accent:"#F97316", accentLight:"#FB923C", green:"#EAB308", text:"#F0F0F5", muted:"#FDBA74", danger:"#FF6B6B" },
 };
+const DEFAULT_THEME = THEMES.cosmos;
 const C = () => window._theme || DEFAULT_THEME;
 const fmtDate = (y,m,d) => `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 const getDays  = (y,m) => new Date(y,m+1,0).getDate();
@@ -17,70 +24,64 @@ const DAYS_FR  = ["D","L","M","M","J","V","S"];
 const AVATAR_COLORS = ["#6C63FF","#FF6B6B","#3DDC84","#FFD166","#00C9A7","#E91E8C","#3498DB","#F39C12","#9B59B6","#1ABC9C"];
 const EMOJI_REACTIONS = ["👍","❤️","😂","😮","🎉","🙏"];
 
-function heatColor(count, total, theme) {
-  if (count===0) return "transparent";
-  const r = count/total;
-  if (r<=0.25) return theme.accent+"44";
-  if (r<=0.5)  return theme.accent+"88";
-  if (r<=0.75) return theme.accent;
+function heatColor(count,total,theme){
+  if(!count)return"transparent";
+  const r=count/total;
+  if(r<=0.25)return theme.accent+"44";
+  if(r<=0.5)return theme.accent+"88";
+  if(r<=0.75)return theme.accent;
   return theme.green;
 }
-
-function getWeekNumber(date) {
-  const d = new Date(date);
-  d.setHours(0,0,0,0);
+function getWeekNumber(date){
+  const d=new Date(date);d.setHours(0,0,0,0);
   d.setDate(d.getDate()+4-(d.getDay()||7));
-  const yearStart = new Date(d.getFullYear(),0,1);
-  return Math.ceil((((d-yearStart)/86400000)+1)/7);
+  const y=new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-y)/86400000)+1)/7);
 }
-
-function formatFullDate(ts) {
-  const d = new Date(ts);
-  return d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+function formatFullDate(ts){
+  return new Date(ts).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
 }
 
 // ─── Firebase hook ────────────────────────────────────────────────────────────
-function useFirebase(path, defaultVal) {
-  const [data,setData] = useState(defaultVal);
-  useEffect(() => {
-    const r = ref(db,path);
-    const unsub = onValue(r, snap => {
-      const val = snap.val();
-      setData(val!==null && val!==undefined ? val : defaultVal);
-    });
-    return ()=>unsub();
+function useFirebase(path,defaultVal){
+  const[data,setData]=useState(defaultVal);
+  useEffect(()=>{
+    const r=ref(db,path);
+    const unsub=onValue(r,snap=>{const val=snap.val();setData(val!==null&&val!==undefined?val:defaultVal);});
+    return()=>unsub();
   },[path]);
   return data;
 }
 
-// ─── Global styles ────────────────────────────────────────────────────────────
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  @keyframes shimmer{0%,100%{opacity:0.6}50%{opacity:1}}
-  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-  @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow-x:hidden}
-  button,input{font-family:inherit}
-  ::-webkit-scrollbar{width:4px}
-  ::-webkit-scrollbar-thumb{background:#2A2D3E;border-radius:2px}
-  .app-root{min-height:100vh;min-height:100dvh;width:100%;max-width:430px;margin:0 auto;display:flex;flex-direction:column;position:relative}
+// ─── Global CSS ───────────────────────────────────────────────────────────────
+const GCSS=`
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+button,input,textarea{font-family:inherit}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#2A2D3E;border-radius:2px}
+.app-root{
+  min-height:100vh;min-height:100dvh;width:100%;max-width:430px;margin:0 auto;
+  display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
 `;
 
 // ─── PwInput ──────────────────────────────────────────────────────────────────
-function PwInput({value,onChange,onEnter,placeholder="Mot de passe",error,t}) {
-  const [show,setShow] = useState(false);
-  return (
+function PwInput({value,onChange,onEnter,placeholder="Mot de passe",error,t}){
+  const[show,setShow]=useState(false);
+  return(
     <div style={{position:"relative"}}>
       <input type={show?"text":"password"} value={value} onChange={onChange}
         onKeyDown={e=>e.key==="Enter"&&onEnter()} placeholder={placeholder}
         style={{width:"100%",padding:"13px 48px 13px 16px",borderRadius:14,fontSize:15,
-          background:error?`${t.danger}11`:t.card,
-          border:`1px solid ${error?t.danger:t.border}`,
-          color:t.text,outline:"none"}}
-      />
+          background:error?`${t.danger}11`:t.card,border:`1px solid ${error?t.danger:t.border}`,color:t.text,outline:"none"}}/>
       <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:t.muted,fontSize:16,padding:4}}>
         {show?"🙈":"👁"}
       </button>
@@ -88,67 +89,70 @@ function PwInput({value,onChange,onEnter,placeholder="Mot de passe",error,t}) {
   );
 }
 
-// ─── Event Banner (évolution 6) ───────────────────────────────────────────────
-function EventBanner({t}) {
-  const event = useFirebase("config/validatedEvent", null);
-  if (!event || !event.date) return null;
-  const eventDate = new Date(event.date+"T12:00:00");
-  const now = new Date();
-  const diff = Math.ceil((eventDate-now)/(1000*60*60*24));
-  const past = diff<0;
-  return (
-    <div style={{animation:"slideDown 0.4s ease",background:`linear-gradient(135deg,${t.accent},${t.green})`,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+// ─── Event Banner ─────────────────────────────────────────────────────────────
+function EventBanner({t,currentUser,onNavigate}){
+  const event=useFirebase("config/validatedEvent",null);
+  const seenKey=currentUser?`seen_event_${currentUser}`:"";
+  const[seen,setSeen]=useState(false);
+  useEffect(()=>{if(seenKey&&event)setSeen(localStorage.getItem(seenKey)===(event.validatedAt?.toString()||""));},[event,seenKey]);
+  if(!event||!event.date)return null;
+  const eventDate=new Date(event.date+"T12:00:00");
+  const now=new Date();
+  const diff=Math.ceil((eventDate-now)/(1000*60*60*24));
+  const past=diff<0;
+  const isNew=currentUser&&!seen;
+  function markSeen(){if(seenKey&&event){localStorage.setItem(seenKey,(event.validatedAt?.toString()||""));setSeen(true);}}
+  return(
+    <div onClick={()=>{markSeen();onNavigate&&onNavigate("events");}} style={{animation:"slideDown 0.4s ease",background:`linear-gradient(135deg,${t.accent},${t.green})`,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0,cursor:onNavigate?"pointer":"default"}}>
       <span style={{fontSize:20}}>{past?"✅":"🎉"}</span>
       <div style={{flex:1}}>
         <div style={{color:"#fff",fontWeight:700,fontSize:13}}>{event.title||"Événement confirmé !"}</div>
         <div style={{color:"#ffffff99",fontSize:11}}>
           {eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}
-          {!past && ` — dans ${diff} jour${diff>1?"s":""}`}
-          {past && " — événement passé"}
-          {event.slot && ` · ${event.slot==="midi"?"🍽 Midi":event.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}`}
+          {!past&&` — dans ${diff} jour${diff>1?"s":""}`}
+          {past&&" — événement passé"}
+          {event.slot&&` · ${event.slot==="midi"?"🍽 Midi":event.slot==="soir"?"🌙 Soir":"🍽🌙 Les deux"}`}
         </div>
+        {event.message&&<div style={{color:"#ffffffCC",fontSize:11,marginTop:2,fontStyle:"italic"}}>"{event.message}"</div>}
       </div>
+      {isNew&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff",animation:"pulse 1.5s infinite",flexShrink:0}}/>}
     </div>
   );
 }
 
 // ─── Splash Screen ────────────────────────────────────────────────────────────
-function SplashScreen({onEnter}) {
-  const [phase,setPhase]           = useState("title");
-  const [loginUser,setLoginUser]   = useState(null);
-  const [loginPw,setLoginPw]       = useState("");
-  const [loginErr,setLoginErr]     = useState("");
-  const [newName,setNewName]       = useState("");
-  const [newPw,setNewPw]           = useState("");
-  const [newPwConfirm,setNewPwC]   = useState("");
-  const [newError,setNewError]     = useState("");
-  const [newColor,setNewColor]     = useState(AVATAR_COLORS[0]);
-  const [adminPw,setAdminPw]       = useState("");
-  const [adminErr,setAdminErr]     = useState(false);
-  const [fadeIn,setFadeIn]         = useState(false);
-
-  const appName   = useFirebase("config/appName","WhenWeMeet");
-  const appSub    = useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
-  const adminPass = useFirebase("config/adminPassword","admin123");
-  const usersObj  = useFirebase("users",{});
-  const passwords = useFirebase("passwords",{});
-  const themeData = useFirebase("config/theme",DEFAULT_THEME);
-  const profiles  = useFirebase("profiles",{});
-
+function SplashScreen({onEnter}){
+  const[phase,setPhase]=useState("title");
+  const[loginUser,setLoginUser]=useState(null);
+  const[loginPw,setLoginPw]=useState("");
+  const[loginErr,setLoginErr]=useState("");
+  const[newName,setNewName]=useState("");
+  const[newPw,setNewPw]=useState("");
+  const[newPwC,setNewPwC]=useState("");
+  const[newError,setNewError]=useState("");
+  const[newColor,setNewColor]=useState(AVATAR_COLORS[0]);
+  const[adminPw,setAdminPw]=useState("");
+  const[adminErr,setAdminErr]=useState(false);
+  const[fadeIn,setFadeIn]=useState(false);
+  const appName=useFirebase("config/appName","WhenWeMeet");
+  const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
+  const adminPass=useFirebase("config/adminPassword","admin123");
+  const usersObj=useFirebase("users",{});
+  const passwords=useFirebase("passwords",{});
+  const themeData=useFirebase("config/theme",DEFAULT_THEME);
+  const profiles=useFirebase("profiles",{});
   useEffect(()=>{window._theme=themeData;},[themeData]);
   useEffect(()=>{setTimeout(()=>setFadeIn(true),80);},[]);
-
-  const t = themeData||DEFAULT_THEME;
-  const userList = Object.keys(usersObj||{});
-
+  const t=themeData||DEFAULT_THEME;
+  const userList=Object.keys(usersObj||{});
   function openLogin(u){setLoginUser(u);setLoginPw("");setLoginErr("");setPhase("login");}
   function tryLogin(){
     const stored=(passwords||{})[loginUser];
-    if(!stored||stored===loginPw){onEnter("user",loginUser);}
+    if(!stored||stored===loginPw)onEnter("user",loginUser);
     else{setLoginErr("Mot de passe incorrect.");setLoginPw("");}
   }
   function tryAdmin(){
-    if(adminPw===adminPass){onEnter("admin",null);}
+    if(adminPw===adminPass)onEnter("admin",null);
     else{setAdminErr(true);setAdminPw("");setTimeout(()=>setAdminErr(false),1200);}
   }
   async function createProfile(){
@@ -156,25 +160,22 @@ function SplashScreen({onEnter}) {
     if(!name||name.length<2){setNewError("Saisis au moins 2 caractères.");return;}
     if(userList.includes(name)){setNewError("Ce nom existe déjà — connecte-toi !");return;}
     if(!newPw){setNewError("Choisis un mot de passe.");return;}
-    if(newPw!==newPwConfirm){setNewError("Les mots de passe ne correspondent pas.");return;}
+    if(newPw!==newPwC){setNewError("Les mots de passe ne correspondent pas.");return;}
     await set(ref(db,`users/${name}`),{name,createdAt:Date.now()});
     await set(ref(db,`passwords/${name}`),newPw);
-    await set(ref(db,`profiles/${name}`),{color:newColor,emoji:""});
+    await set(ref(db,`profiles/${name}`),{color:newColor,theme:"cosmos"});
     onEnter("user",name);
   }
-
   const stars=Array.from({length:28},(_,i)=>({x:(i*37+11)%100,y:(i*53+7)%100,r:0.8+(i%3)*0.6,o:0.2+(i%4)*0.15}));
-  const bigBtn={padding:"14px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:`0 4px 20px ${t.accent}44`,width:"100%"};
+  const bigBtn={padding:"14px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",width:"100%"};
   const backBtn={background:"none",border:"none",color:t.muted,fontSize:13,cursor:"pointer",padding:"4px"};
-
-  return (
-    <div style={{minHeight:"100vh",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%,#1a1640 0%,${t.bg} 70%)`,position:"relative",overflow:"hidden",opacity:fadeIn?1:0,transition:"opacity 0.6s ease"}}>
-      <style>{GLOBAL_CSS}</style>
+  return(
+    <div style={{minHeight:"100vh",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%,#1a1640 0%,${t.bg} 70%)`,position:"relative",overflow:"hidden",opacity:fadeIn?1:0,transition:"opacity 0.6s ease",paddingTop:"env(safe-area-inset-top)"}}>
+      <style>{GCSS}</style>
       <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}>
         {stars.map((s,i)=><circle key={i} cx={`${s.x}%`} cy={`${s.y}%`} r={s.r} fill="white" opacity={s.o}/>)}
       </svg>
       <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:260,height:260,borderRadius:"50%",background:`radial-gradient(circle,${t.accent}22 0%,transparent 70%)`,pointerEvents:"none"}}/>
-
       <div style={{textAlign:"center",zIndex:1,padding:"0 28px",maxWidth:400,width:"100%"}}>
         <div style={{animation:"float 4s ease-in-out infinite",marginBottom:8}}>
           <div style={{width:80,height:80,borderRadius:24,margin:"0 auto",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,boxShadow:`0 0 40px ${t.accent}55`}}>📅</div>
@@ -184,15 +185,13 @@ function SplashScreen({onEnter}) {
         </div>
         <div style={{color:t.muted,fontSize:14,marginBottom:28}}>{appSub}</div>
 
-        {/* TITLE */}
         {phase==="title"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{color:t.muted,fontSize:12,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Choisissez votre accès</div>
-            <div style={{background:`${t.card}CC`,border:`1px solid ${t.border}`,borderRadius:18,padding:"4px",backdropFilter:"blur(12px)",maxHeight:240,overflowY:"auto"}}>
+            <div style={{background:`${t.card}CC`,border:`1px solid ${t.border}`,borderRadius:18,padding:"4px",maxHeight:240,overflowY:"auto"}}>
               {userList.length===0&&<div style={{color:t.muted,fontSize:13,padding:"16px"}}>Aucun membre — crée ton profil !</div>}
               {userList.map((u,i)=>{
-                const prof=(profiles||{})[u]||{};
-                const col=prof.color||AVATAR_COLORS[0];
+                const col=(profiles||{})[u]?.color||AVATAR_COLORS[0];
                 return(
                   <button key={u} onClick={()=>openLogin(u)} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"11px 14px",background:"none",border:"none",borderRadius:14,cursor:"pointer",borderBottom:i<userList.length-1?`1px solid ${t.border}44`:"none"}}>
                     <div style={{width:36,height:36,borderRadius:"50%",flexShrink:0,background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15}}>{u[0].toUpperCase()}</div>
@@ -206,16 +205,15 @@ function SplashScreen({onEnter}) {
               <span style={{fontSize:18}}>✨</span> Créer mon profil
             </button>
             <button onClick={()=>{setPhase("admin-pin");setAdminPw("");}} style={{padding:"11px",borderRadius:14,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:13,cursor:"pointer"}}>
-              ⚙️ &nbsp;Accès administrateur
+              ⚙️  Accès administrateur
             </button>
           </div>
         )}
 
-        {/* LOGIN */}
         {phase==="login"&&loginUser&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
-              <div style={{width:64,height:64,borderRadius:"50%",background:(profiles||{})[loginUser]?.color||t.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:"#fff",boxShadow:`0 0 28px ${t.accent}44`}}>{loginUser[0].toUpperCase()}</div>
+              <div style={{width:64,height:64,borderRadius:"50%",background:(profiles||{})[loginUser]?.color||t.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:"#fff"}}>{loginUser[0].toUpperCase()}</div>
             </div>
             <div style={{color:t.text,fontWeight:700,fontSize:18,fontFamily:"Syne,sans-serif"}}>Bonjour, {loginUser} !</div>
             <PwInput value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr("");}} onEnter={tryLogin} error={!!loginErr} t={t}/>
@@ -225,29 +223,25 @@ function SplashScreen({onEnter}) {
           </div>
         )}
 
-        {/* NEW USER */}
         {phase==="new-user"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
-              <div style={{width:64,height:64,borderRadius:"50%",background:newColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:"#fff",boxShadow:`0 0 28px ${newColor}66`,transition:"all 0.3s"}}>{newName.trim()?newName.trim()[0].toUpperCase():"?"}</div>
+              <div style={{width:64,height:64,borderRadius:"50%",background:newColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:"#fff",transition:"all 0.3s"}}>{newName.trim()?newName.trim()[0].toUpperCase():"?"}</div>
             </div>
             <div style={{color:t.text,fontWeight:700,fontSize:18,fontFamily:"Syne,sans-serif"}}>Créer mon profil</div>
             <input autoFocus value={newName} onChange={e=>{setNewName(e.target.value);setNewError("");}} placeholder="Ton prénom ou pseudo…" maxLength={20} style={{width:"100%",padding:"13px 16px",borderRadius:14,fontSize:15,background:t.card,border:`1px solid ${t.border}`,color:t.text,outline:"none"}}/>
-            <div style={{color:t.muted,fontSize:12,marginBottom:2}}>Couleur de ton avatar</div>
+            <div style={{color:t.muted,fontSize:12}}>Couleur de ton avatar</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
-              {AVATAR_COLORS.map(col=>(
-                <button key={col} onClick={()=>setNewColor(col)} style={{width:32,height:32,borderRadius:"50%",background:col,border:newColor===col?`3px solid #fff`:"3px solid transparent",cursor:"pointer",transition:"transform 0.15s",transform:newColor===col?"scale(1.2)":"scale(1)"}}/>
-              ))}
+              {AVATAR_COLORS.map(col=><button key={col} onClick={()=>setNewColor(col)} style={{width:32,height:32,borderRadius:"50%",background:col,border:newColor===col?"3px solid #fff":"3px solid transparent",cursor:"pointer",transition:"transform 0.15s",transform:newColor===col?"scale(1.2)":"scale(1)"}}/>)}
             </div>
             <PwInput value={newPw} onChange={e=>{setNewPw(e.target.value);setNewError("");}} onEnter={createProfile} placeholder="Choisis un mot de passe" error={!!newError&&!!newName.trim()} t={t}/>
-            <PwInput value={newPwConfirm} onChange={e=>{setNewPwC(e.target.value);setNewError("");}} onEnter={createProfile} placeholder="Répète le mot de passe" error={!!newError&&newPw!==newPwConfirm} t={t}/>
+            <PwInput value={newPwC} onChange={e=>{setNewPwC(e.target.value);setNewError("");}} onEnter={createProfile} placeholder="Répète le mot de passe" error={!!newError&&newPw!==newPwC} t={t}/>
             {newError&&<div style={{color:t.danger,fontSize:13,animation:"shake 0.4s ease"}}>{newError}</div>}
             <button onClick={createProfile} style={{...bigBtn,opacity:newName.trim().length>=2&&newPw?1:0.5}}>Rejoindre le groupe 🎉</button>
             <button onClick={()=>setPhase("title")} style={backBtn}>← Retour</button>
           </div>
         )}
 
-        {/* ADMIN */}
         {phase==="admin-pin"&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <div style={{color:t.text,fontWeight:700,fontSize:17,fontFamily:"Syne,sans-serif"}}>Zone administrateur</div>
@@ -263,68 +257,44 @@ function SplashScreen({onEnter}) {
 }
 
 // ─── Calendar Tab ─────────────────────────────────────────────────────────────
-function CalendarTab({currentUser}) {
-  const now = new Date();
-  const todayStr = fmtDate(now.getFullYear(),now.getMonth(),now.getDate());
-  const [year,setYear]   = useState(now.getFullYear());
-  const [month,setMonth] = useState(now.getMonth());
-  const [selected,setSel] = useState(null);
-  const [slotModal,setSlotModal] = useState(false);
-  const t = C();
-  const usersObj = useFirebase("users",{});
-  const avail    = useFirebase("availability",{});
-  const event    = useFirebase("config/validatedEvent",null);
-  const users = Object.keys(usersObj||{});
-  const days  = getDays(year,month);
-  const first = getFirst(year,month);
-
-  // Max 3 months ahead
-  const maxYear  = now.getMonth()>=9 ? now.getFullYear()+1 : now.getFullYear();
-  const maxMonth = (now.getMonth()+3)%12;
-  function isAfterMax(y,m){ return y>maxYear||(y===maxYear&&m>maxMonth); }
-  function isBeforeNow(y,m){ return y<now.getFullYear()||(y===now.getFullYear()&&m<now.getMonth()); }
-
-  function nextM(){ const nm=(month+1)%12,ny=month===11?year+1:year; if(!isAfterMax(ny,nm)){setMonth(nm);if(month===11)setYear(y=>y+1);setSel(null);} }
-  function prevM(){ if(!isBeforeNow(year,month)){if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);setSel(null);} }
-
-  function isDayPast(d){ return fmtDate(year,month,d)<todayStr; }
-
-  function getSlots(ds){ const a=(avail||{})[ds]||{}; return {midi:Array.isArray(a.midi)?a.midi:[],soir:Array.isArray(a.soir)?a.soir:[]}; }
-  function countTotal(ds){ const {midi,soir}=getSlots(ds); return new Set([...midi,...soir]).size; }
-
+function CalendarTab({currentUser}){
+  const now=new Date();
+  const todayStr=fmtDate(now.getFullYear(),now.getMonth(),now.getDate());
+  const[year,setYear]=useState(now.getFullYear());
+  const[month,setMonth]=useState(now.getMonth());
+  const[selected,setSel]=useState(null);
+  const t=C();
+  const usersObj=useFirebase("users",{});
+  const avail=useFirebase("availability",{});
+  const event=useFirebase("config/validatedEvent",null);
+  const users=Object.keys(usersObj||{});
+  const days=getDays(year,month);
+  const first=getFirst(year,month);
+  const maxYear=now.getMonth()>=9?now.getFullYear()+1:now.getFullYear();
+  const maxMonth=(now.getMonth()+3)%12;
+  function isAfterMax(y,m){return y>maxYear||(y===maxYear&&m>maxMonth);}
+  function isBeforeNow(y,m){return y<now.getFullYear()||(y===now.getFullYear()&&m<now.getMonth());}
+  function nextM(){const nm=(month+1)%12,ny=month===11?year+1:year;if(!isAfterMax(ny,nm)){setMonth(nm);if(month===11)setYear(y=>y+1);setSel(null);}}
+  function prevM(){if(!isBeforeNow(year,month)){if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);setSel(null);}}
+  function isPast(d){return fmtDate(year,month,d)<todayStr;}
+  function getSlots(ds){const a=(avail||{})[ds]||{};return{midi:Array.isArray(a.midi)?a.midi:[],soir:Array.isArray(a.soir)?a.soir:[]};}
+  function countTotal(ds){const{midi,soir}=getSlots(ds);return new Set([...midi,...soir]).size;}
   async function toggleSlot(ds,slot){
-    const {midi,soir}=getSlots(ds);
+    const{midi,soir}=getSlots(ds);
     const arr=slot==="midi"?midi:soir;
     const idx=arr.indexOf(currentUser);
     const updated=idx===-1?[...arr,currentUser]:arr.filter(x=>x!==currentUser);
     await set(ref(db,`availability/${ds}/${slot}`),updated);
   }
-
-  // Best day
   let bestDate=null,bestCount=0;
-  for(let d=1;d<=days;d++){
-    const ds=fmtDate(year,month,d);
-    if(ds<todayStr)continue;
-    const c=countTotal(ds);
-    if(c>bestCount){bestCount=c;bestDate=ds;}
-  }
-
-  const selSlots = selected?getSlots(selected):{midi:[],soir:[]};
-  const isMidi   = selSlots.midi.includes(currentUser);
-  const isSoir   = selSlots.soir.includes(currentUser);
-
-  // Perfect date detection
-  const perfectDates = [];
-  for(let d=1;d<=days;d++){
-    const ds=fmtDate(year,month,d);
-    if(ds<todayStr)continue;
-    const {midi,soir}=getSlots(ds);
-    if(midi.length===users.length||soir.length===users.length) perfectDates.push(ds);
-  }
-
-  return (
+  for(let d=1;d<=days;d++){const ds=fmtDate(year,month,d);if(ds<todayStr)continue;const c=countTotal(ds);if(c>bestCount){bestCount=c;bestDate=ds;}}
+  const selSlots=selected?getSlots(selected):{midi:[],soir:[]};
+  const isMidi=selSlots.midi.includes(currentUser);
+  const isSoir=selSlots.soir.includes(currentUser);
+  const perfectDates=[];
+  for(let d=1;d<=days;d++){const ds=fmtDate(year,month,d);if(ds<todayStr)continue;const{midi,soir}=getSlots(ds);if(midi.length===users.length||soir.length===users.length)perfectDates.push(ds);}
+  return(
     <div style={{padding:"0 0 16px",overflowX:"hidden"}}>
-      {/* Perfect date alert */}
       {perfectDates.length>0&&(
         <div style={{margin:"10px 12px",padding:"12px 14px",background:`${t.green}15`,border:`1px solid ${t.green}55`,borderRadius:14,display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🎉</span>
@@ -334,8 +304,6 @@ function CalendarTab({currentUser}) {
           </div>
         </div>
       )}
-
-      {/* Best day banner */}
       {bestDate&&bestCount>1&&!perfectDates.includes(bestDate)&&(
         <div style={{margin:"10px 12px",padding:"12px 14px",background:`${t.green}11`,border:`1px solid ${t.green}44`,borderRadius:14,display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:20}}>🏆</span>
@@ -346,26 +314,20 @@ function CalendarTab({currentUser}) {
           </div>
         </div>
       )}
-
-      {/* Month nav */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 16px 4px"}}>
-        <button onClick={prevM} style={{background:"none",border:"none",cursor:"pointer",color:isBeforeNow(year,month)?t.border:t.muted,fontSize:24,padding:"4px 10px"}} disabled={isBeforeNow(year,month)}>‹</button>
+        <button onClick={prevM} disabled={isBeforeNow(year,month)} style={{background:"none",border:"none",cursor:"pointer",color:isBeforeNow(year,month)?t.border:t.muted,fontSize:24,padding:"4px 10px"}}>‹</button>
         <span style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Syne,sans-serif"}}>{MONTHS[month]} {year}</span>
-        <button onClick={nextM} style={{background:"none",border:"none",cursor:"pointer",color:isAfterMax(month===11?year+1:year,(month+1)%12)?t.border:t.muted,fontSize:24,padding:"4px 10px"}} disabled={isAfterMax(month===11?year+1:year,(month+1)%12)}>›</button>
+        <button onClick={nextM} disabled={isAfterMax(month===11?year+1:year,(month+1)%12)} style={{background:"none",border:"none",cursor:"pointer",color:isAfterMax(month===11?year+1:year,(month+1)%12)?t.border:t.muted,fontSize:24,padding:"4px 10px"}}>›</button>
       </div>
-
-      {/* Day labels */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"6px 10px 2px",gap:2}}>
         {DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:11,fontWeight:600}}>{d}</div>)}
       </div>
-
-      {/* Calendar grid */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"0 10px",gap:3}}>
         {Array(first).fill(null).map((_,i)=><div key={"e"+i}/>)}
         {Array.from({length:days},(_,i)=>i+1).map(d=>{
           const ds=fmtDate(year,month,d);
-          const past=isDayPast(d);
-          const {midi,soir}=getSlots(ds);
+          const past=isPast(d);
+          const{midi,soir}=getSlots(ds);
           const count=new Set([...midi,...soir]).size;
           const isMe=midi.includes(currentUser)||soir.includes(currentUser);
           const isSel=selected===ds;
@@ -373,12 +335,11 @@ function CalendarTab({currentUser}) {
           const isPerfect=perfectDates.includes(ds);
           const isEvent=event&&event.date===ds;
           return(
-            <button key={d} onClick={()=>{if(past)return;setSel(isSel?null:ds);setSlotModal(!isSel);}}
+            <button key={d} onClick={()=>{if(past)return;setSel(isSel?null:ds);}}
               style={{aspectRatio:"1",borderRadius:10,
                 border:isPerfect?`2px solid ${t.green}`:isEvent?`2px solid ${t.accent}`:isSel?`2px solid ${t.accent}`:isToday?`2px solid ${t.accent}44`:"2px solid transparent",
                 background:past?t.bg+"44":isPerfect?t.green+"33":heatColor(count,Math.max(users.length,1),t),
-                cursor:past?"not-allowed":"pointer",
-                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                cursor:past?"not-allowed":"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
                 position:"relative",opacity:past?0.3:1,transition:"all 0.15s"}}>
               <span style={{color:past?t.muted:count>0?t.text:t.muted,fontSize:12,fontWeight:isToday?800:500}}>{d}</span>
               {count>0&&!past&&<span style={{fontSize:8,color:isPerfect?t.green:t.accentLight,fontWeight:700}}>{count}/{users.length}</span>}
@@ -388,41 +349,27 @@ function CalendarTab({currentUser}) {
           );
         })}
       </div>
-
-      {/* Legend */}
       <div style={{display:"flex",gap:8,padding:"10px 12px 4px",flexWrap:"wrap"}}>
         {[{c:t.accent+"44",l:"Peu"},{c:t.accent+"88",l:"Quelques"},{c:t.accent,l:"Beaucoup"},{c:t.green,l:"Tous !"}].map(({c,l})=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:3,background:c}}/><span style={{color:t.muted,fontSize:10}}>{l}</span></div>
         ))}
         <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:t.green}}/><span style={{color:t.muted,fontSize:10}}>Vous</span></div>
       </div>
-
-      {/* Selected day detail */}
-      {selected&&!isDayPast(parseInt(selected.split("-")[2]))&&(
+      {selected&&!isPast(parseInt(selected.split("-")[2]))&&(
         <div style={{margin:"10px 12px 0",padding:"14px",background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
-          <div style={{color:t.text,fontWeight:700,marginBottom:12,fontSize:14}}>
-            {new Date(selected+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}
-          </div>
-
-          {/* Slot toggles */}
+          <div style={{color:t.text,fontWeight:700,marginBottom:12,fontSize:14}}>{new Date(selected+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
           <div style={{display:"flex",gap:10,marginBottom:12}}>
-            <button onClick={()=>toggleSlot(selected,"midi")} style={{flex:1,padding:"10px",borderRadius:12,background:isMidi?`${t.accent}33`:t.bg,border:`2px solid ${isMidi?t.accent:t.border}`,color:isMidi?t.accent:t.muted,fontSize:13,fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
-              🍽 Midi {isMidi&&"✓"}
-            </button>
-            <button onClick={()=>toggleSlot(selected,"soir")} style={{flex:1,padding:"10px",borderRadius:12,background:isSoir?`${t.green}22`:t.bg,border:`2px solid ${isSoir?t.green:t.border}`,color:isSoir?t.green:t.muted,fontSize:13,fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
-              🌙 Soir {isSoir&&"✓"}
-            </button>
+            <button onClick={()=>toggleSlot(selected,"midi")} style={{flex:1,padding:"10px",borderRadius:12,background:isMidi?`${t.accent}33`:t.bg,border:`2px solid ${isMidi?t.accent:t.border}`,color:isMidi?t.accent:t.muted,fontSize:13,fontWeight:700,cursor:"pointer"}}>🍽 Midi {isMidi&&"✓"}</button>
+            <button onClick={()=>toggleSlot(selected,"soir")} style={{flex:1,padding:"10px",borderRadius:12,background:isSoir?`${t.green}22`:t.bg,border:`2px solid ${isSoir?t.green:t.border}`,color:isSoir?t.green:t.muted,fontSize:13,fontWeight:700,cursor:"pointer"}}>🌙 Soir {isSoir&&"✓"}</button>
           </div>
-
-          {/* Who's available */}
           {["midi","soir"].map(slot=>{
             const people=selSlots[slot];
-            if(people.length===0)return null;
+            if(!people.length)return null;
             return(
               <div key={slot} style={{marginBottom:8}}>
                 <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:4}}>{slot==="midi"?"🍽 Midi":"🌙 Soir"}</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {people.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:p===currentUser?`${t.green}22`:`${t.accent}22`,color:p===currentUser?t.green:t.accentLight,fontSize:11,fontWeight:600,border:`1px solid ${p===currentUser?t.green:t.accent}33`}}>{p}</span>)}
+                  {people.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:p===currentUser?`${t.green}22`:`${t.accent}22`,color:p===currentUser?t.green:t.accentLight,fontSize:11,fontWeight:600}}>{p}</span>)}
                 </div>
               </div>
             );
@@ -435,62 +382,47 @@ function CalendarTab({currentUser}) {
 }
 
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
-function ChatTab({currentUser}) {
-  const [input,setInput] = useState("");
-  const bottomRef = useRef(null);
-  const t = C();
-  const msgsObj  = useFirebase("messages",{});
-  const profiles = useFirebase("profiles",{});
-  const msgs = Object.entries(msgsObj||{}).map(([id,m])=>({id,...m})).sort((a,b)=>a.ts-b.ts);
-
+function ChatTab({currentUser}){
+  const[input,setInput]=useState("");
+  const bottomRef=useRef(null);
+  const t=C();
+  const msgsObj=useFirebase("messages",{});
+  const profiles=useFirebase("profiles",{});
+  const msgs=Object.entries(msgsObj||{}).map(([id,m])=>({id,...m})).sort((a,b)=>a.ts-b.ts);
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]);
-
   async function send(){
-    const text=input.trim(); if(!text)return;
+    const text=input.trim();if(!text)return;
     const now=new Date();
     const time=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
     await push(ref(db,"messages"),{user:currentUser,text,time,ts:Date.now()});
     setInput("");
   }
-
   async function addReaction(msgId,emoji){
     const msg=msgsObj[msgId];
     const reactions=msg.reactions||{};
     const users=reactions[emoji]||[];
     const idx=users.indexOf(currentUser);
     const updated=idx===-1?[...users,currentUser]:users.filter(x=>x!==currentUser);
-    if(updated.length===0){
-      const newR={...reactions}; delete newR[emoji];
-      await update(ref(db,`messages/${msgId}`),{reactions:newR});
-    } else {
-      await update(ref(db,`messages/${msgId}`),{reactions:{...reactions,[emoji]:updated}});
-    }
+    if(!updated.length){const newR={...reactions};delete newR[emoji];await update(ref(db,`messages/${msgId}`),{reactions:newR});}
+    else await update(ref(db,`messages/${msgId}`),{reactions:{...reactions,[emoji]:updated}});
   }
-
-  // Date separators
-  function needsSeparator(idx){
+  function needsSep(idx){
     if(idx===0)return true;
     const prev=msgs[idx-1],curr=msgs[idx];
-    const pw=getWeekNumber(new Date(prev.ts)),cw=getWeekNumber(new Date(curr.ts));
-    const py=new Date(prev.ts).getFullYear(),cy=new Date(curr.ts).getFullYear();
-    return pw!==cw||py!==cy;
+    return getWeekNumber(new Date(prev.ts))!==getWeekNumber(new Date(curr.ts))||new Date(prev.ts).getFullYear()!==new Date(curr.ts).getFullYear();
   }
-
-  return (
+  return(
     <div style={{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
       <div style={{flex:1,overflowY:"auto",padding:"10px 12px",display:"flex",flexDirection:"column",gap:6}}>
         {msgs.map((m,idx)=>{
           const isMe=m.user===currentUser;
-          const prof=(profiles||{})[m.user]||{};
-          const col=prof.color||t.accent;
+          const col=(profiles||{})[m.user]?.color||t.accent;
           const reactions=m.reactions||{};
           return(
             <div key={m.id}>
-              {needsSeparator(idx)&&(
+              {needsSep(idx)&&(
                 <div style={{textAlign:"center",margin:"12px 0 8px"}}>
-                  <span style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:"4px 14px",color:t.muted,fontSize:11,fontWeight:600}}>
-                    {formatFullDate(m.ts)}
-                  </span>
+                  <span style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:"4px 14px",color:t.muted,fontSize:11,fontWeight:600}}>{formatFullDate(m.ts)}</span>
                 </div>
               )}
               <div style={{display:"flex",flexDirection:"column",alignItems:isMe?"flex-end":"flex-start"}}>
@@ -498,20 +430,15 @@ function ChatTab({currentUser}) {
                   <div style={{width:18,height:18,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#fff"}}>{m.user[0]}</div>
                   <span style={{color:t.muted,fontSize:11}}>{m.user}</span>
                 </div>}
-                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?col:t.card,color:"#fff",fontSize:14,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>
-                  {m.text}
-                </div>
-                {/* Reactions */}
+                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?col:t.card,color:"#fff",fontSize:14,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:3,justifyContent:isMe?"flex-end":"flex-start"}}>
                   {Object.entries(reactions).filter(([,u])=>u.length>0).map(([emoji,users])=>(
-                    <button key={emoji} onClick={()=>addReaction(m.id,emoji)} style={{padding:"2px 7px",borderRadius:12,background:users.includes(currentUser)?`${t.accent}33`:t.card,border:`1px solid ${users.includes(currentUser)?t.accent:t.border}`,cursor:"pointer",fontSize:12,color:t.text}}>
-                      {emoji} {users.length}
-                    </button>
+                    <button key={emoji} onClick={()=>addReaction(m.id,emoji)} style={{padding:"2px 7px",borderRadius:12,background:users.includes(currentUser)?`${t.accent}33`:t.card,border:`1px solid ${users.includes(currentUser)?t.accent:t.border}`,cursor:"pointer",fontSize:12,color:t.text}}>{emoji} {users.length}</button>
                   ))}
-                  <button onClick={()=>{const el=document.getElementById(`react-${m.id}`);el.style.display=el.style.display==="none"?"flex":"none";}} style={{padding:"2px 6px",borderRadius:12,background:"none",border:`1px solid ${t.border}33`,cursor:"pointer",fontSize:11,color:t.muted}}>＋</button>
+                  <button onClick={()=>{const el=document.getElementById(`r-${m.id}`);el.style.display=el.style.display==="none"?"flex":"none";}} style={{padding:"2px 6px",borderRadius:12,background:"none",border:`1px solid ${t.border}33`,cursor:"pointer",fontSize:11,color:t.muted}}>＋</button>
                 </div>
-                <div id={`react-${m.id}`} style={{display:"none",gap:4,marginTop:3,flexWrap:"wrap",justifyContent:isMe?"flex-end":"flex-start"}}>
-                  {EMOJI_REACTIONS.map(e=><button key={e} onClick={()=>{addReaction(m.id,e);document.getElementById(`react-${m.id}`).style.display="none";}} style={{fontSize:16,padding:"2px 4px",background:"none",border:"none",cursor:"pointer"}}>{e}</button>)}
+                <div id={`r-${m.id}`} style={{display:"none",gap:4,marginTop:3,flexWrap:"wrap",justifyContent:isMe?"flex-end":"flex-start"}}>
+                  {EMOJI_REACTIONS.map(e=><button key={e} onClick={()=>{addReaction(m.id,e);document.getElementById(`r-${m.id}`).style.display="none";}} style={{fontSize:16,padding:"2px 4px",background:"none",border:"none",cursor:"pointer"}}>{e}</button>)}
                 </div>
                 <span style={{color:t.muted,fontSize:10,marginTop:2,marginLeft:4,marginRight:4}}>{m.time}</span>
               </div>
@@ -521,8 +448,7 @@ function ChatTab({currentUser}) {
         <div ref={bottomRef}/>
       </div>
       <div style={{padding:"8px 12px 12px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,background:t.bg,flexShrink:0}}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Message…"
-          style={{flex:1,padding:"11px 14px",borderRadius:24,border:`1px solid ${t.border}`,background:t.card,color:t.text,fontSize:14,outline:"none",minWidth:0}}/>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Message…" style={{flex:1,padding:"11px 14px",borderRadius:24,border:`1px solid ${t.border}`,background:t.card,color:t.text,fontSize:14,outline:"none",minWidth:0}}/>
         <button onClick={send} style={{width:44,height:44,borderRadius:"50%",background:t.accent,border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff"}}>↑</button>
       </div>
     </div>
@@ -530,59 +456,26 @@ function ChatTab({currentUser}) {
 }
 
 // ─── Friends Tab ──────────────────────────────────────────────────────────────
-function FriendsTab({currentUser}) {
-  const t = C();
-  const usersObj = useFirebase("users",{});
-  const avail    = useFirebase("availability",{});
-  const profiles = useFirebase("profiles",{});
-  const presence = useFirebase("presence",{});
-  const sorties  = useFirebase("sorties",{});
-  const users = Object.keys(usersObj||{});
-
-  // Count per user
+function FriendsTab({currentUser}){
+  const t=C();
+  const usersObj=useFirebase("users",{});
+  const avail=useFirebase("availability",{});
+  const profiles=useFirebase("profiles",{});
+  const presence=useFirebase("presence",{});
+  const sorties=useFirebase("sorties",{});
+  const users=Object.keys(usersObj||{});
   const counts={};
   users.forEach(u=>{counts[u]={midi:0,soir:0};});
-  Object.values(avail||{}).forEach(day=>{
-    if(!day)return;
-    (day.midi||[]).forEach(u=>{if(counts[u])counts[u].midi++;});
-    (day.soir||[]).forEach(u=>{if(counts[u])counts[u].soir++;});
-  });
-
-  // Top dates
+  Object.values(avail||{}).forEach(day=>{if(!day)return;(day.midi||[]).forEach(u=>{if(counts[u])counts[u].midi++;});(day.soir||[]).forEach(u=>{if(counts[u])counts[u].soir++;});});
   const shared=Object.entries(avail||{}).map(([date,day])=>{
     const midi=Array.isArray(day?.midi)?day.midi:[];
     const soir=Array.isArray(day?.soir)?day.soir:[];
     return{date,midi,soir,total:new Set([...midi,...soir]).size};
   }).filter(x=>x.total>1).sort((a,b)=>b.total-a.total).slice(0,6);
-
   const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
-
-  return (
+  return(
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
-      {/* Members */}
-      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:10,fontFamily:"Syne,sans-serif"}}>Membres du groupe</div>
-      {users.map(u=>{
-        const prof=(profiles||{})[u]||{};
-        const col=prof.color||t.accent;
-        const online=(presence||{})[u]?.online||false;
-        const total=counts[u].midi+counts[u].soir;
-        return(
-          <div key={u} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",marginBottom:7,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
-            <div style={{position:"relative",flexShrink:0}}>
-              <div style={{width:40,height:40,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:16}}>{u[0].toUpperCase()}</div>
-              {online&&<div style={{position:"absolute",bottom:0,right:0,width:12,height:12,borderRadius:"50%",background:t.green,border:`2px solid ${t.card}`}}/>}
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{color:t.text,fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:6}}>{u}{u===currentUser&&<span style={{color:t.accent,fontSize:11}}>(vous)</span>}</div>
-              <div style={{color:t.muted,fontSize:11}}>🍽 {counts[u].midi} midi · 🌙 {counts[u].soir} soir</div>
-            </div>
-            <div style={{width:34,height:34,borderRadius:"50%",background:`${t.green}22`,display:"flex",alignItems:"center",justifyContent:"center",color:t.green,fontWeight:700,fontSize:12,flexShrink:0}}>{total}</div>
-          </div>
-        );
-      })}
-
-      {/* Top dates */}
-      <div style={{color:t.text,fontWeight:700,fontSize:16,margin:"18px 0 10px",fontFamily:"Syne,sans-serif"}}>🔥 Top dates communes</div>
+      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:10,fontFamily:"Syne,sans-serif"}}>🔥 Top dates communes</div>
       {shared.length===0?<div style={{color:t.muted,fontSize:13,marginBottom:16}}>Pas encore de dates communes !</div>
         :shared.map(({date,midi,soir,total})=>(
           <div key={date} style={{padding:"11px 12px",marginBottom:7,background:t.card,borderRadius:14,border:`1px solid ${total===users.length?t.green+"66":t.border}`}}>
@@ -590,31 +483,40 @@ function FriendsTab({currentUser}) {
               <span style={{color:t.text,fontWeight:600,fontSize:14}}>{new Date(date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
               <span style={{padding:"2px 9px",borderRadius:20,background:total===users.length?`${t.green}22`:`${t.accent}22`,color:total===users.length?t.green:t.accentLight,fontSize:11,fontWeight:700}}>{total}/{users.length}</span>
             </div>
-            {midi.length>0&&<div style={{marginBottom:5}}>
-              <span style={{color:t.muted,fontSize:11,fontWeight:600}}>🍽 Midi : </span>
-              {midi.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11,marginRight:3}}>{p}</span>)}
-            </div>}
-            {soir.length>0&&<div>
-              <span style={{color:t.muted,fontSize:11,fontWeight:600}}>🌙 Soir : </span>
-              {soir.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.green}15`,color:t.muted,fontSize:11,marginRight:3}}>{p}</span>)}
-            </div>}
+            {midi.length>0&&<div style={{marginBottom:5}}><span style={{color:t.muted,fontSize:11,fontWeight:600}}>🍽 Midi : </span>{midi.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11,marginRight:3}}>{p}</span>)}</div>}
+            {soir.length>0&&<div><span style={{color:t.muted,fontSize:11,fontWeight:600}}>🌙 Soir : </span>{soir.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.green}15`,color:t.muted,fontSize:11,marginRight:3}}>{p}</span>)}</div>}
           </div>
         ))
       }
-
-      {/* Nos sorties */}
+      <div style={{color:t.text,fontWeight:700,fontSize:16,margin:"18px 0 10px",fontFamily:"Syne,sans-serif"}}>👥 Membres du groupe</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+      {users.map(u=>{
+        const col=(profiles||{})[u]?.color||t.accent;
+        const online=(presence||{})[u]?.online||false;
+        const total=(counts[u]?.midi||0)+(counts[u]?.soir||0);
+        return(
+          <div key={u} style={{padding:"10px",background:t.card,borderRadius:14,border:`1px solid ${u===currentUser?t.accent+"66":t.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:6,position:"relative"}}>
+            <div style={{position:"relative"}}>
+              <div style={{width:38,height:38,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15}}>{u[0].toUpperCase()}</div>
+              {online&&<div style={{position:"absolute",bottom:0,right:0,width:12,height:12,borderRadius:"50%",background:t.green,border:`2px solid ${t.card}`}}/>}
+            </div>
+            <div style={{color:t.text,fontWeight:600,fontSize:13,textAlign:"center"}}>{u}{u===currentUser&&<span style={{color:t.accent,fontSize:10,display:"block"}}>(vous)</span>}</div>
+            <div style={{display:"flex",gap:4}}>
+              <span style={{padding:"2px 6px",borderRadius:8,background:`${t.accent}22`,color:t.accentLight,fontSize:10,fontWeight:600}}>🍽 {counts[u]?.midi||0}</span>
+              <span style={{padding:"2px 6px",borderRadius:8,background:`${t.green}22`,color:t.green,fontSize:10,fontWeight:600}}>🌙 {counts[u]?.soir||0}</span>
+            </div>
+            <div style={{width:24,height:24,borderRadius:"50%",background:`${t.green}22`,display:"flex",alignItems:"center",justifyContent:"center",color:t.green,fontWeight:700,fontSize:11}}>{total}</div>
+          </div>
+        );
+      })}
+      </div>
       {sortieList.length>0&&<>
         <div style={{color:t.text,fontWeight:700,fontSize:16,margin:"18px 0 10px",fontFamily:"Syne,sans-serif"}}>📖 Nos sorties</div>
         {sortieList.map(s=>(
           <div key={s.id} style={{padding:"11px 12px",marginBottom:7,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
             <div style={{color:t.text,fontWeight:600,fontSize:14}}>{s.title}</div>
-            <div style={{color:t.muted,fontSize:12,marginTop:3}}>
-              {new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
-              {s.slot&&` · ${s.slot==="midi"?"🍽 Midi":s.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}`}
-            </div>
-            {s.participants&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
-              {s.participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}
-            </div>}
+            <div style={{color:t.muted,fontSize:12,marginTop:3}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}{s.slot&&` · ${s.slot==="midi"?"🍽 Midi":s.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}`}</div>
+            {s.participants&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{s.participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}</div>}
           </div>
         ))}
       </>}
@@ -622,13 +524,230 @@ function FriendsTab({currentUser}) {
   );
 }
 
-// ─── Admin Panel ──────────────────────────────────────────────────────────────
-function AdminPanel({onExit}) {
-  const [section,setSection] = useState("home");
-  const themeData = useFirebase("config/theme",DEFAULT_THEME);
-  const t = themeData||DEFAULT_THEME;
-  useEffect(()=>{window._theme=themeData;},[themeData]);
+// ─── Events Tab ───────────────────────────────────────────────────────────────
+function EventsTab({currentUser}){
+  const t=C();
+  const[subTab,setSubTab]=useState("prochain");
+  const event=useFirebase("config/validatedEvent",null);
+  const sorties=useFirebase("sorties",{});
+  const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
+  useEffect(()=>{
+    if(currentUser&&event)localStorage.setItem(`seen_event_${currentUser}`,(event.validatedAt?.toString()||""));
+  },[event,currentUser]);
+  const hasEvent=event&&event.date;
+  const eventDate=hasEvent?new Date(event.date+"T12:00:00"):null;
+  const diff=eventDate?Math.ceil((eventDate-new Date())/(1000*60*60*24)):null;
+  const past=diff!==null&&diff<0;
+  return(
+    <div style={{padding:"10px 12px",overflowX:"hidden"}}>
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {[{id:"prochain",label:"⭐ Prochain"},{id:"historique",label:"📖 Historique"}].map(s=>(
+          <button key={s.id} onClick={()=>setSubTab(s.id)} style={{flex:1,padding:"9px",borderRadius:12,background:subTab===s.id?t.accent:t.card,border:`1px solid ${subTab===s.id?t.accent:t.border}`,color:subTab===s.id?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
+        ))}
+      </div>
+      {subTab==="prochain"&&(
+        !hasEvent?(
+          <div style={{textAlign:"center",padding:"40px 20px",color:t.muted}}>
+            <div style={{fontSize:48,marginBottom:12}}>📅</div>
+            <div style={{fontSize:15,fontWeight:600,color:t.text,marginBottom:6}}>Aucun événement prévu</div>
+            <div style={{fontSize:13}}>L'administrateur n'a pas encore validé de date.</div>
+          </div>
+        ):(
+          <div>
+            <div style={{background:`linear-gradient(135deg,${t.accent}22,${t.green}11)`,border:`1px solid ${t.accent}44`,borderRadius:16,padding:"20px",marginBottom:14,textAlign:"center"}}>
+              {!past?(
+                <>
+                  <div style={{color:t.muted,fontSize:12,marginBottom:4}}>Dans</div>
+                  <div style={{color:t.accent,fontWeight:800,fontSize:48,fontFamily:"Syne,sans-serif",lineHeight:1}}>{diff}</div>
+                  <div style={{color:t.muted,fontSize:14}}>jour{diff>1?"s":""}</div>
+                </>
+              ):<div style={{color:t.green,fontWeight:700,fontSize:18}}>✅ Événement passé</div>}
+            </div>
+            <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:16,padding:"16px"}}>
+              <div style={{color:t.text,fontWeight:800,fontSize:18,fontFamily:"Syne,sans-serif",marginBottom:12}}>{event.title}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>📅</span><span style={{color:t.text,fontSize:14}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span></div>
+                {event.slot&&<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>{event.slot==="midi"?"🍽":event.slot==="soir"?"🌙":"🍽🌙"}</span><span style={{color:t.text,fontSize:14}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi et soir"}</span></div>}
+                {event.address&&<div style={{display:"flex",alignItems:"flex-start",gap:10}}><span style={{fontSize:18,flexShrink:0}}>📍</span><span style={{color:t.text,fontSize:14,lineHeight:1.4}}>{event.address}</span></div>}
+                {event.mapsUrl&&(
+                  <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:12,textDecoration:"none"}}>
+                    <span style={{fontSize:18}}>🗺️</span>
+                    <span style={{color:t.accent,fontSize:14,fontWeight:600}}>Voir sur Google Maps</span>
+                  </a>
+                )}
+                {event.message&&(
+                  <div style={{background:`${t.green}11`,border:`1px solid ${t.green}33`,borderRadius:12,padding:"12px 14px"}}>
+                    <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:4}}>💬 Message de l'organisateur</div>
+                    <div style={{color:t.text,fontSize:14,lineHeight:1.5,fontStyle:"italic"}}>"{event.message}"</div>
+                  </div>
+                )}
+                {event.participants&&event.participants.length>0&&(
+                  <div>
+                    <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>👥 Participants</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{event.participants.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:`${t.accent}22`,color:t.accentLight,fontSize:12,fontWeight:600}}>{p}</span>)}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      )}
+      {subTab==="historique"&&(
+        sortieList.length===0?(
+          <div style={{textAlign:"center",padding:"40px 20px",color:t.muted}}>
+            <div style={{fontSize:48,marginBottom:12}}>📖</div>
+            <div style={{fontSize:15,fontWeight:600,color:t.text,marginBottom:6}}>Aucune sortie archivée</div>
+            <div style={{fontSize:13}}>L'historique apparaîtra ici.</div>
+          </div>
+        ):(
+          sortieList.map(s=>(
+            <div key={s.id} style={{padding:"14px",marginBottom:10,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
+              <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:5}}>{s.title}</div>
+              <div style={{color:t.muted,fontSize:12,marginBottom:6}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}{s.slot&&` · ${s.slot==="midi"?"🍽 Midi":s.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}`}</div>
+              {s.participants&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{s.participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}</div>}
+            </div>
+          ))
+        )
+      )}
+    </div>
+  );
+}
 
+// ─── Themes Tab ───────────────────────────────────────────────────────────────
+function ThemesTab({currentUser}){
+  const t=C();
+  const profiles=useFirebase("profiles",{});
+  const currentThemeKey=(profiles||{})[currentUser]?.theme||"cosmos";
+  const[,rerender]=useState(0);
+  async function selectTheme(key){
+    const prof=(profiles||{})[currentUser]||{};
+    await update(ref(db,`profiles/${currentUser}`),{...prof,theme:key});
+    window._theme={...THEMES[key]};
+    window.dispatchEvent(new Event("themechange"));
+    rerender(n=>n+1);
+  }
+  return(
+    <div style={{padding:"10px 12px"}}>
+      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Choisis ton thème</div>
+      <div style={{color:t.muted,fontSize:12,marginBottom:14}}>Ton choix est personnel — il ne change pas l'affichage des autres membres.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {Object.entries(THEMES).map(([key,theme])=>{
+          const isActive=currentThemeKey===key;
+          return(
+            <button key={key} onClick={()=>selectTheme(key)} style={{padding:"14px",borderRadius:16,background:theme.card,border:`2px solid ${isActive?theme.accent:theme.border}`,cursor:"pointer",textAlign:"left",position:"relative",transition:"all 0.2s"}}>
+              {isActive&&<div style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:"50%",background:theme.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#fff",fontWeight:700}}>✓</div>}
+              <div style={{fontWeight:700,fontSize:13,color:theme.text,marginBottom:8}}>{theme.name}</div>
+              <div style={{display:"flex",gap:4,marginBottom:6}}>
+                {[theme.border,theme.accent+"44",theme.accent+"88",theme.accent,theme.accent,theme.green].map((c,i)=>(
+                  <div key={i} style={{width:14,height:14,borderRadius:4,background:c,flexShrink:0}}/>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:5}}>
+                <div style={{padding:"2px 7px",borderRadius:10,background:`${theme.accent}33`,color:theme.accentLight,fontSize:10,fontWeight:600}}>🍽</div>
+                <div style={{padding:"2px 7px",borderRadius:10,background:`${theme.green}33`,color:theme.green,fontSize:10,fontWeight:600}}>🌙</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Presence ─────────────────────────────────────────────────────────────────
+function usePresence(u){
+  useEffect(()=>{
+    if(!u)return;
+    const r=ref(db,`presence/${u}`);
+    set(r,{online:true,lastSeen:Date.now()});
+    const iv=setInterval(()=>set(r,{online:true,lastSeen:Date.now()}),30000);
+    const bye=()=>set(r,{online:false,lastSeen:Date.now()});
+    window.addEventListener("beforeunload",bye);
+    return()=>{clearInterval(iv);bye();window.removeEventListener("beforeunload",bye);};
+  },[u]);
+}
+
+// ─── User App ─────────────────────────────────────────────────────────────────
+function UserApp({currentUser,onLogout}){
+  const[tab,setTab]=useState("calendar");
+  const[,rerender]=useState(0);
+  const themeData=useFirebase("config/theme",DEFAULT_THEME);
+  const profiles=useFirebase("profiles",{});
+  const appName=useFirebase("config/appName","WhenWeMeet");
+  const event=useFirebase("config/validatedEvent",null);
+  usePresence(currentUser);
+
+  // Thème personnel du membre
+  useEffect(()=>{
+    const prof=(profiles||{})[currentUser]||{};
+    const key=prof.theme||"cosmos";
+    window._theme={...THEMES[key]};
+    rerender(n=>n+1);
+  },[profiles,currentUser]);
+  useEffect(()=>{
+    const h=()=>rerender(n=>n+1);
+    window.addEventListener("themechange",h);
+    return()=>window.removeEventListener("themechange",h);
+  },[]);
+
+  const t=C();
+  const col=(profiles||{})[currentUser]?.color||t.accent;
+  const seenKey=`seen_event_${currentUser}`;
+  const hasNewEvent=event&&event.validatedAt&&localStorage.getItem(seenKey)!==(event.validatedAt?.toString()||"");
+
+  const tabs=[
+    {id:"calendar",icon:"📅",label:"Calendrier"},
+    {id:"chat",    icon:"💬",label:"Chat"},
+    {id:"friends", icon:"👥",label:"Amis"},
+    {id:"events",  icon:"🎉",label:"Événements",badge:hasNewEvent},
+    {id:"themes",  icon:"🎨",label:"Thèmes"},
+  ];
+
+  return(
+    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",justifyContent:"center"}}>
+      <style>{GCSS}</style>
+      <div className="app-root">
+        <EventBanner t={t} currentUser={currentUser} onNavigate={setTab}/>
+        <div style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
+          <div>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,letterSpacing:-0.5}}>
+              {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
+            </div>
+            <div style={{color:t.muted,fontSize:10}}>Trouvez la date parfaite ensemble</div>
+          </div>
+          <button onClick={onLogout} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:12,fontWeight:600}}>
+            Quitter
+          </button>
+        </div>
+        <div style={{flex:1,overflowY:tab==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",minHeight:0}}>
+          {tab==="calendar"&&<CalendarTab currentUser={currentUser}/>}
+          {tab==="chat"    &&<ChatTab currentUser={currentUser}/>}
+          {tab==="friends" &&<FriendsTab currentUser={currentUser}/>}
+          {tab==="events"  &&<EventsTab currentUser={currentUser}/>}
+          {tab==="themes"  &&<ThemesTab currentUser={currentUser}/>}
+        </div>
+        <div style={{display:"flex",borderTop:`1px solid ${t.border}`,background:t.bg,flexShrink:0,paddingBottom:"env(safe-area-inset-bottom)"}}>
+          {tabs.map(tb=>(
+            <button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,padding:"10px 0 12px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderTop:tab===tb.id?`2px solid ${t.accent}`:"2px solid transparent",marginTop:-1,minWidth:0,position:"relative"}}>
+              <span style={{fontSize:18}}>{tb.icon}</span>
+              {tb.badge&&<div style={{position:"absolute",top:6,right:"calc(50% - 14px)",width:8,height:8,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
+              <span style={{fontSize:9,fontWeight:600,color:tab===tb.id?t.accentLight:t.muted,whiteSpace:"nowrap"}}>{tb.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin Panel ──────────────────────────────────────────────────────────────
+function AdminPanel({onExit}){
+  const[section,setSection]=useState("home");
+  const themeData=useFirebase("config/theme",DEFAULT_THEME);
+  const appName=useFirebase("config/appName","WhenWeMeet");
+  const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
+  const t=themeData||DEFAULT_THEME;
+  useEffect(()=>{window._theme=themeData;},[themeData]);
   const sections=[
     {id:"home",icon:"🏠",label:"Accueil"},
     {id:"identity",icon:"✏️",label:"Identité"},
@@ -639,16 +758,24 @@ function AdminPanel({onExit}) {
     {id:"sorties",icon:"📖",label:"Sorties"},
     {id:"security",icon:"🔐",label:"Sécurité"},
   ];
-
-  return (
-    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",flexDirection:"column",maxWidth:430,margin:"0 auto"}}>
-      <style>{GLOBAL_CSS}</style>
+  return(
+    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",flexDirection:"column",maxWidth:430,margin:"0 auto",paddingTop:"env(safe-area-inset-top)"}}>
+      <style>{GCSS}</style>
       <div style={{padding:"14px 16px 11px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
-        <div><div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:t.text}}>⚙️ Admin</div><div style={{color:t.muted,fontSize:11}}>WhenWeMeet</div></div>
+        <div>
+          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:17,color:t.text}}>⚙️ {appName}</div>
+          <div style={{color:t.muted,fontSize:11}}>{appSub}</div>
+        </div>
         <button onClick={onExit} style={{padding:"8px 14px",borderRadius:20,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,cursor:"pointer"}}>Quitter</button>
       </div>
-      <div style={{display:"flex",overflowX:"auto",gap:6,padding:"10px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
-        {sections.map(s=><button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"6px 11px",borderRadius:20,whiteSpace:"nowrap",background:section===s.id?t.accent:t.card,border:`1px solid ${section===s.id?t.accent:t.border}`,color:section===s.id?"#fff":t.muted,fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>{s.icon} {s.label}</button>)}
+      {/* Menus admin sur 2 rangées de 4 */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,padding:"10px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
+        {sections.map(s=>(
+          <button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"8px 4px",borderRadius:12,background:section===s.id?t.accent:t.card,border:`1px solid ${section===s.id?t.accent:t.border}`,color:section===s.id?"#fff":t.muted,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+            <span style={{fontSize:16}}>{s.icon}</span>
+            <span style={{fontSize:9,whiteSpace:"nowrap"}}>{s.label}</span>
+          </button>
+        ))}
       </div>
       <div style={{flex:1,overflowY:"auto"}}>
         {section==="home"     &&<AdminHome t={t} onNav={setSection}/>}
@@ -664,22 +791,20 @@ function AdminPanel({onExit}) {
   );
 }
 
-function ACard({children,t}){return <div style={{margin:"10px 12px",padding:"14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>{children}</div>;}
-function ALabel({children,t}){return <div style={{color:t.muted,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{children}</div>;}
-function SaveBtn({onClick,t,label="Enregistrer",saved}){return <button onClick={onClick} style={{padding:"11px",borderRadius:12,marginTop:10,background:saved?t.green:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",width:"100%",transition:"background 0.3s"}}>{label}</button>;}
-function AInput({value,onChange,t,placeholder=""}){return <input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:14,outline:"none"}}/>;}
+function ACard({children,t}){return<div style={{margin:"10px 12px",padding:"14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>{children}</div>;}
+function ALabel({children,t}){return<div style={{color:t.muted,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{children}</div>;}
+function SaveBtn({onClick,t,label="Enregistrer",saved}){return<button onClick={onClick} style={{padding:"11px",borderRadius:12,marginTop:10,background:saved?t.green:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",width:"100%",transition:"background 0.3s"}}>{label}</button>;}
+function AInput({value,onChange,t,placeholder=""}){return<input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:14,outline:"none"}}/>;}
 
 function AdminHome({t,onNav}){
-  const users  = useFirebase("users",{});
-  const avail  = useFirebase("availability",{});
-  const msgs   = useFirebase("messages",{});
-  const stats  = [{label:"Membres",value:Object.keys(users||{}).length,icon:"👥"},{label:"Jours dispo",value:Object.keys(avail||{}).length,icon:"📅"},{label:"Messages",value:Object.keys(msgs||{}).length,icon:"💬"}];
+  const users=useFirebase("users",{});
+  const avail=useFirebase("availability",{});
+  const msgs=useFirebase("messages",{});
+  const stats=[{label:"Membres",value:Object.keys(users||{}).length,icon:"👥"},{label:"Jours dispo",value:Object.keys(avail||{}).length,icon:"📅"},{label:"Messages",value:Object.keys(msgs||{}).length,icon:"💬"}];
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Aperçu temps réel</ALabel>
-        <div style={{display:"flex",gap:8}}>
-          {stats.map(s=><div key={s.label} style={{flex:1,background:t.bg,borderRadius:12,padding:"10px",textAlign:"center"}}><div style={{fontSize:20}}>{s.icon}</div><div style={{color:t.text,fontWeight:700,fontSize:18}}>{s.value}</div><div style={{color:t.muted,fontSize:10}}>{s.label}</div></div>)}
-        </div>
+        <div style={{display:"flex",gap:8}}>{stats.map(s=><div key={s.label} style={{flex:1,background:t.bg,borderRadius:12,padding:"10px",textAlign:"center"}}><div style={{fontSize:20}}>{s.icon}</div><div style={{color:t.text,fontWeight:700,fontSize:18}}>{s.value}</div><div style={{color:t.muted,fontSize:10}}>{s.label}</div></div>)}</div>
       </ACard>
       <ACard t={t}><ALabel t={t}>Accès rapide</ALabel>
         {[{id:"identity",icon:"✏️",label:"Nom de l'app"},{id:"theme",icon:"🎨",label:"Couleurs"},{id:"users",icon:"👥",label:"Membres"},{id:"event",icon:"🎯",label:"Valider un événement"},{id:"sorties",icon:"📖",label:"Archiver une sortie"}].map(item=>(
@@ -695,9 +820,9 @@ function AdminHome({t,onNav}){
 function AdminIdentity({t}){
   const appName=useFirebase("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
-  const [name,setName]=useState("");
-  const [sub,setSub]=useState("");
-  const [saved,setSaved]=useState(false);
+  const[name,setName]=useState("");
+  const[sub,setSub]=useState("");
+  const[saved,setSaved]=useState(false);
   useEffect(()=>{setName(appName);},[appName]);
   useEffect(()=>{setSub(appSub);},[appSub]);
   async function save(){await update(ref(db,"config"),{appName:name.trim()||"WhenWeMeet",appSubtitle:sub.trim()});setSaved(true);setTimeout(()=>setSaved(false),2000);}
@@ -710,38 +835,33 @@ function AdminIdentity({t}){
   );
 }
 
-const PRESETS=[
-  {name:"Cosmos",accent:"#6C63FF",green:"#3DDC84",bg:"#0F1117",card:"#1C1E2A"},
-  {name:"Aurora",accent:"#00C9A7",green:"#FFD166",bg:"#0A1628",card:"#142035"},
-  {name:"Sunset",accent:"#FF6B6B",green:"#FFE66D",bg:"#1A0A0A",card:"#2A1010"},
-  {name:"Forest",accent:"#2ECC71",green:"#F39C12",bg:"#0A1A0F",card:"#102018"},
-  {name:"Ocean", accent:"#3498DB",green:"#1ABC9C",bg:"#0A0F1A",card:"#101828"},
-  {name:"Rose",  accent:"#E91E8C",green:"#00E5FF",bg:"#1A0A14",card:"#28101E"},
-];
-
 function AdminTheme({t}){
   const themeData=useFirebase("config/theme",DEFAULT_THEME);
-  const [accent,setAccent]=useState(t.accent);
-  const [green,setGreen]=useState(t.green);
-  const [bg,setBg]=useState(t.bg);
-  const [card,setCard]=useState(t.card);
-  const [saved,setSaved]=useState(false);
+  const[accent,setAccent]=useState(t.accent);
+  const[green,setGreen]=useState(t.green);
+  const[bg,setBg]=useState(t.bg);
+  const[card,setCard]=useState(t.card);
+  const[saved,setSaved]=useState(false);
   useEffect(()=>{if(themeData){setAccent(themeData.accent);setGreen(themeData.green);setBg(themeData.bg);setCard(themeData.card);}},[themeData]);
   async function save(){
-    const newTheme={...DEFAULT_THEME,accent,accentLight:accent,green,bg,card,border:"#"+Math.max(0,parseInt(card.slice(1),16)+0x101010).toString(16).padStart(6,"0")};
+    const newTheme={...DEFAULT_THEME,accent,accentLight:accent,green,bg,card,border:"#"+Math.max(0,parseInt((card||"#1C1E2A").slice(1),16)+0x101010).toString(16).padStart(6,"0")};
     await set(ref(db,"config/theme"),newTheme);setSaved(true);setTimeout(()=>setSaved(false),2000);
   }
-  const colorRow=(label,val,set)=>(
+  const colorRow=(label,val,setFn)=>(
     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-      <input type="color" value={val} onChange={e=>set(e.target.value)} style={{width:42,height:42,borderRadius:10,border:"none",cursor:"pointer"}}/>
+      <input type="color" value={val} onChange={e=>setFn(e.target.value)} style={{width:42,height:42,borderRadius:10,border:"none",cursor:"pointer"}}/>
       <div><div style={{color:t.text,fontSize:13,fontWeight:600}}>{label}</div><div style={{color:t.muted,fontSize:11}}>{val}</div></div>
     </div>
   );
   return(
     <div style={{padding:"8px 0 20px"}}>
-      <ACard t={t}><ALabel t={t}>Thèmes prédéfinis</ALabel>
-        <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-          {PRESETS.map(p=><button key={p.name} onClick={()=>{setAccent(p.accent);setGreen(p.green);setBg(p.bg);setCard(p.card);}} style={{padding:"7px 12px",borderRadius:20,background:p.accent+"22",border:`1px solid ${p.accent}66`,color:p.accent,fontSize:12,fontWeight:700,cursor:"pointer"}}>{p.name}</button>)}
+      <ACard t={t}><ALabel t={t}>Thèmes prédéfinis (thème global par défaut)</ALabel>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {Object.entries(THEMES).map(([key,theme])=>(
+            <button key={key} onClick={()=>{setAccent(theme.accent);setGreen(theme.green);setBg(theme.bg);setCard(theme.card);}} style={{padding:"8px 10px",borderRadius:12,background:theme.card,border:`1px solid ${theme.accent}66`,color:theme.accent,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"left"}}>
+              {theme.name}
+            </button>
+          ))}
         </div>
       </ACard>
       <ACard t={t}><ALabel t={t}>Couleurs personnalisées</ALabel>
@@ -750,7 +870,7 @@ function AdminTheme({t}){
         {colorRow("Fond",bg,setBg)}
         {colorRow("Cartes",card,setCard)}
       </ACard>
-      <div style={{padding:"0 12px"}}><SaveBtn onClick={save} t={t} label={saved?"✓ Appliqué !":"Appliquer le thème"} saved={saved}/></div>
+      <div style={{padding:"0 12px"}}><SaveBtn onClick={save} t={t} label={saved?"✓ Appliqué !":"Appliquer le thème global"} saved={saved}/></div>
     </div>
   );
 }
@@ -759,23 +879,18 @@ function AdminUsers({t}){
   const usersObj=useFirebase("users",{});
   const passwords=useFirebase("passwords",{});
   const avail=useFirebase("availability",{});
-  const [newName,setNewName]=useState("");
-  const [resetTarget,setRT]=useState(null);
-  const [resetPw,setRPw]=useState("");
-  const [resetConf,setRC]=useState("");
-  const [resetMsg,setRM]=useState(null);
-  const [showReset,setSR]=useState(false);
+  const[newName,setNewName]=useState("");
+  const[resetTarget,setRT]=useState(null);
+  const[resetPw,setRPw]=useState("");
+  const[resetConf,setRC]=useState("");
+  const[resetMsg,setRM]=useState(null);
+  const[showReset,setSR]=useState(false);
   const userList=Object.keys(usersObj||{});
-
   async function addUser(){const n=newName.trim();if(!n||userList.includes(n))return;await set(ref(db,`users/${n}`),{name:n,createdAt:Date.now()});setNewName("");}
   async function removeUser(u){
     await remove(ref(db,`users/${u}`));await remove(ref(db,`passwords/${u}`));await remove(ref(db,`profiles/${u}`));
     const av=avail||{};
-    for(const[date,day]of Object.entries(av)){
-      const midi=(day?.midi||[]).filter(x=>x!==u);
-      const soir=(day?.soir||[]).filter(x=>x!==u);
-      await set(ref(db,`availability/${date}`),{midi,soir});
-    }
+    for(const[date,day]of Object.entries(av)){const midi=(day?.midi||[]).filter(x=>x!==u);const soir=(day?.soir||[]).filter(x=>x!==u);await set(ref(db,`availability/${date}`),{midi,soir});}
     if(resetTarget===u){setRT(null);setSR(false);}
   }
   async function applyReset(){
@@ -786,14 +901,10 @@ function AdminUsers({t}){
     setRPw("");setRC("");setTimeout(()=>{setSR(false);setRT(null);setRM(null);},2000);
   }
   async function clearPw(u){await remove(ref(db,`passwords/${u}`));setRM({ok:true,text:"Mot de passe supprimé."});setTimeout(()=>setRM(null),2000);}
-
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Ajouter un membre</ALabel>
-        <div style={{display:"flex",gap:8}}>
-          <AInput value={newName} onChange={e=>setNewName(e.target.value)} t={t} placeholder="Prénom ou pseudo"/>
-          <button onClick={addUser} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:18,flexShrink:0}}>+</button>
-        </div>
+        <div style={{display:"flex",gap:8}}><AInput value={newName} onChange={e=>setNewName(e.target.value)} t={t} placeholder="Prénom ou pseudo"/><button onClick={addUser} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:18,flexShrink:0}}>+</button></div>
       </ACard>
       <ACard t={t}><ALabel t={t}>{userList.length} membre{userList.length>1?"s":""}</ALabel>
         {userList.map(u=>{
@@ -802,10 +913,7 @@ function AdminUsers({t}){
             <div key={u}>
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
                 <div style={{width:34,height:34,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",color:t.text,fontWeight:700,fontSize:14,flexShrink:0}}>{u[0]}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:t.text,fontSize:13,fontWeight:600}}>{u}</div>
-                  <div style={{fontSize:10,color:hasPw?t.green:t.muted}}>{hasPw?"🔒 Mot de passe défini":"🔓 Sans mot de passe"}</div>
-                </div>
+                <div style={{flex:1,minWidth:0}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{u}</div><div style={{fontSize:10,color:hasPw?t.green:t.muted}}>{hasPw?"🔒 Mot de passe défini":"🔓 Sans mot de passe"}</div></div>
                 <button onClick={()=>resetTarget===u&&showReset?setSR(false):(setRT(u),setRPw(""),setRC(""),setRM(null),setSR(true))} style={{background:"none",border:`1px solid ${t.accent}55`,borderRadius:8,padding:"4px 8px",color:t.accent,fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>🔑</button>
                 <button onClick={()=>removeUser(u)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
               </div>
@@ -833,26 +941,19 @@ function AdminUsers({t}){
 function AdminAvail({t}){
   const now=new Date();
   const todayStr=fmtDate(now.getFullYear(),now.getMonth(),now.getDate());
-  const [year,setYear]=useState(now.getFullYear());
-  const [month,setMonth]=useState(now.getMonth());
-  const [sel,setSel]=useState(null);
+  const[year,setYear]=useState(now.getFullYear());
+  const[month,setMonth]=useState(now.getMonth());
+  const[sel,setSel]=useState(null);
   const usersObj=useFirebase("users",{});
   const avail=useFirebase("availability",{});
   const users=Object.keys(usersObj||{});
   const days=getDays(year,month);
   const first=getFirst(year,month);
-
   function getSlots(ds){const a=(avail||{})[ds]||{};return{midi:Array.isArray(a.midi)?a.midi:[],soir:Array.isArray(a.soir)?a.soir:[]};}
-  async function toggleUser(ds,slot,user){
-    const {midi,soir}=getSlots(ds);
-    const arr=slot==="midi"?midi:soir;
-    const updated=arr.includes(user)?arr.filter(x=>x!==user):[...arr,user];
-    await set(ref(db,`availability/${ds}/${slot}`),updated);
-  }
+  async function toggleUser(ds,slot,user){const{midi,soir}=getSlots(ds);const arr=slot==="midi"?midi:soir;const updated=arr.includes(user)?arr.filter(x=>x!==user):[...arr,user];await set(ref(db,`availability/${ds}/${slot}`),updated);}
   async function clearDay(ds){await set(ref(db,`availability/${ds}`),{midi:[],soir:[]});}
   function prevM(){if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);setSel(null);}
   function nextM(){if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1);setSel(null);}
-
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}>
@@ -862,14 +963,12 @@ function AdminAvail({t}){
           <span style={{color:t.text,fontWeight:700,fontSize:14}}>{MONTHS[month]} {year}</span>
           <button onClick={nextM} style={{background:"none",border:"none",color:t.muted,fontSize:22,cursor:"pointer",padding:"2px 8px"}}>›</button>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
-          {DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:10,fontWeight:600}}>{d}</div>)}
-        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>{DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:10,fontWeight:600}}>{d}</div>)}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
           {Array(first).fill(null).map((_,i)=><div key={"e"+i}/>)}
           {Array.from({length:days},(_,i)=>i+1).map(d=>{
             const ds=fmtDate(year,month,d);
-            const {midi,soir}=getSlots(ds);
+            const{midi,soir}=getSlots(ds);
             const count=new Set([...midi,...soir]).size;
             const isSel=sel===ds;
             const past=ds<todayStr;
@@ -891,9 +990,7 @@ function AdminAvail({t}){
                 return<button key={u} onClick={()=>toggleUser(sel,slot,u)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:11,background:checked?`${t.green}18`:t.bg,border:`1px solid ${checked?t.green+"66":t.border}`,cursor:"pointer",width:"100%",marginBottom:5}}>
                   <div style={{width:28,height:28,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",color:t.text,fontWeight:700,fontSize:12}}>{u[0]}</div>
                   <span style={{color:t.text,fontSize:13,flex:1}}>{u}</span>
-                  <div style={{width:20,height:20,borderRadius:5,background:checked?t.green:t.bg,border:`2px solid ${checked?t.green:t.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {checked&&<span style={{color:"#000",fontSize:11,fontWeight:800}}>✓</span>}
-                  </div>
+                  <div style={{width:20,height:20,borderRadius:5,background:checked?t.green:t.bg,border:`2px solid ${checked?t.green:t.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{checked&&<span style={{color:"#000",fontSize:11,fontWeight:800}}>✓</span>}</div>
                 </button>;
               })}
             </div>
@@ -909,28 +1006,30 @@ function AdminEvent({t}){
   const avail=useFirebase("availability",{});
   const usersObj=useFirebase("users",{});
   const event=useFirebase("config/validatedEvent",null);
-  const [title,setTitle]=useState("");
-  const [selDate,setSelDate]=useState("");
-  const [selSlot,setSelSlot]=useState("les-deux");
-  const [saved,setSaved]=useState(false);
+  const[title,setTitle]=useState("");
+  const[selDate,setSelDate]=useState("");
+  const[selSlot,setSelSlot]=useState("les-deux");
+  const[message,setMessage]=useState("");
+  const[address,setAddress]=useState("");
+  const[mapsUrl,setMapsUrl]=useState("");
+  const[saved,setSaved]=useState(false);
   const users=Object.keys(usersObj||{});
-
-  // Best dates suggestions
   const suggestions=Object.entries(avail||{}).map(([date,day])=>{
     const midi=Array.isArray(day?.midi)?day.midi:[];
     const soir=Array.isArray(day?.soir)?day.soir:[];
     return{date,midi,soir,total:new Set([...midi,...soir]).size};
   }).filter(x=>x.total>0&&x.date>=fmtDate(new Date().getFullYear(),new Date().getMonth(),new Date().getDate())).sort((a,b)=>b.total-a.total).slice(0,5);
-
   async function validate(){
-    if(!selDate||!title.trim()){return;}
-    const {midi,soir}=((avail||{})[selDate])||{midi:[],soir:[]};
-    const participants=[...new Set([...(midi||[]),...(soir||[])])];
-    await set(ref(db,"config/validatedEvent"),{date:selDate,title:title.trim(),slot:selSlot,participants,validatedAt:Date.now()});
+    if(!selDate||!title.trim())return;
+    const day=(avail||{})[selDate]||{};
+    const midi=Array.isArray(day.midi)?day.midi:[];
+    const soir=Array.isArray(day.soir)?day.soir:[];
+    const participants=[...new Set([...midi,...soir])];
+    await set(ref(db,"config/validatedEvent"),{date:selDate,title:title.trim(),slot:selSlot,message:message.trim(),address:address.trim(),mapsUrl:mapsUrl.trim(),participants,validatedAt:Date.now()});
     setSaved(true);setTimeout(()=>setSaved(false),2000);
   }
   async function clearEvent(){await remove(ref(db,"config/validatedEvent"));}
-
+  const textareaStyle={width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80};
   return(
     <div style={{padding:"8px 0 20px"}}>
       {event&&event.date&&(
@@ -939,16 +1038,17 @@ function AdminEvent({t}){
           <div style={{padding:"12px",background:`${t.green}11`,borderRadius:12,border:`1px solid ${t.green}33`,marginBottom:10}}>
             <div style={{color:t.text,fontWeight:700,fontSize:15}}>{event.title}</div>
             <div style={{color:t.muted,fontSize:12,marginTop:4}}>{new Date(event.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
-            {event.slot&&<div style={{color:t.muted,fontSize:12}}>{event.slot==="midi"?"🍽 Midi":event.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}</div>}
+            {event.message&&<div style={{color:t.muted,fontSize:12,marginTop:4,fontStyle:"italic"}}>"{event.message}"</div>}
+            {event.address&&<div style={{color:t.muted,fontSize:12,marginTop:2}}>📍 {event.address}</div>}
           </div>
           <button onClick={clearEvent} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:13,cursor:"pointer"}}>🗑 Supprimer l'événement</button>
         </ACard>
       )}
       <ACard t={t}>
         <ALabel t={t}>Valider un nouvel événement</ALabel>
-        <div style={{color:t.muted,fontSize:12,marginBottom:8}}>Titre de l'événement</div>
+        <div style={{color:t.muted,fontSize:12,marginBottom:6}}>Titre *</div>
         <AInput value={title} onChange={e=>setTitle(e.target.value)} t={t} placeholder="Ex: Dîner de Noël 🎄"/>
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Suggestions (meilleures dates)</div>
+        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Meilleures dates disponibles</div>
         {suggestions.map(s=>(
           <button key={s.date} onClick={()=>setSelDate(s.date)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 12px",marginBottom:5,background:selDate===s.date?`${t.accent}22`:t.bg,border:`1px solid ${selDate===s.date?t.accent:t.border}`,borderRadius:11,cursor:"pointer"}}>
             <span style={{color:t.text,fontSize:13,flex:1}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
@@ -957,12 +1057,18 @@ function AdminEvent({t}){
           </button>
         ))}
         <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Créneau</div>
-        <div style={{display:"flex",gap:7}}>
+        <div style={{display:"flex",gap:7,marginBottom:12}}>
           {[{id:"midi",label:"🍽 Midi"},{id:"soir",label:"🌙 Soir"},{id:"les-deux",label:"🍽🌙 Les deux"}].map(s=>(
             <button key={s.id} onClick={()=>setSelSlot(s.id)} style={{flex:1,padding:"8px 4px",borderRadius:10,background:selSlot===s.id?`${t.accent}22`:t.bg,border:`1px solid ${selSlot===s.id?t.accent:t.border}`,color:selSlot===s.id?t.accent:t.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
           ))}
         </div>
-        <SaveBtn onClick={validate} t={t} label={saved?"✓ Événement validé !":"🎯 Valider l'événement"} saved={saved}/>
+        <div style={{color:t.muted,fontSize:12,marginBottom:6}}>💬 Message de bienvenue</div>
+        <textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="Ex: On se retrouve à 20h, tenue décontractée !" style={textareaStyle}/>
+        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>📍 Adresse du lieu</div>
+        <AInput value={address} onChange={e=>setAddress(e.target.value)} t={t} placeholder="Ex: Restaurant Le Bistrot, 12 rue de la Paix, Paris"/>
+        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>🗺️ Lien Google Maps</div>
+        <AInput value={mapsUrl} onChange={e=>setMapsUrl(e.target.value)} t={t} placeholder="https://maps.google.com/..."/>
+        <SaveBtn onClick={validate} t={t} label={saved?"✓ Événement validé !":"🎯 Valider et notifier"} saved={saved}/>
       </ACard>
     </div>
   );
@@ -970,31 +1076,27 @@ function AdminEvent({t}){
 
 function AdminSorties({t}){
   const avail=useFirebase("availability",{});
-  const usersObj=useFirebase("users",{});
   const sorties=useFirebase("sorties",{});
-  const event=useFirebase("config/validatedEvent",null);
-  const [title,setTitle]=useState("");
-  const [selDate,setSelDate]=useState("");
-  const [selSlot,setSelSlot]=useState("les-deux");
-  const [saved,setSaved]=useState(false);
-  const users=Object.keys(usersObj||{});
+  const[title,setTitle]=useState("");
+  const[selDate,setSelDate]=useState("");
+  const[selSlot,setSelSlot]=useState("les-deux");
+  const[saved,setSaved]=useState(false);
   const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
-
-  async function archive(){
-    if(!selDate||!title.trim())return;
-    const {midi,soir}=((avail||{})[selDate])||{midi:[],soir:[]};
-    const participants=[...new Set([...(midi||[]),...(soir||[])])];
-    await push(ref(db,"sorties"),{date:selDate,title:title.trim(),slot:selSlot,participants,archivedAt:Date.now()});
-    setSaved(true);setTitle("");setSelDate("");setTimeout(()=>setSaved(false),2000);
-  }
-  async function deleteSortie(id){await remove(ref(db,`sorties/${id}`));}
-
   const suggestions=Object.entries(avail||{}).map(([date,day])=>{
     const midi=Array.isArray(day?.midi)?day.midi:[];
     const soir=Array.isArray(day?.soir)?day.soir:[];
     return{date,midi,soir,total:new Set([...midi,...soir]).size};
   }).filter(x=>x.total>0).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8);
-
+  async function archive(){
+    if(!selDate||!title.trim())return;
+    const day=(avail||{})[selDate]||{};
+    const midi=Array.isArray(day.midi)?day.midi:[];
+    const soir=Array.isArray(day.soir)?day.soir:[];
+    const participants=[...new Set([...midi,...soir])];
+    await push(ref(db,"sorties"),{date:selDate,title:title.trim(),slot:selSlot,participants,archivedAt:Date.now()});
+    setSaved(true);setTitle("");setSelDate("");setTimeout(()=>setSaved(false),2000);
+  }
+  async function deleteSortie(id){await remove(ref(db,`sorties/${id}`));}
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}>
@@ -1021,10 +1123,7 @@ function AdminSorties({t}){
           <ALabel t={t}>{sortieList.length} sortie{sortieList.length>1?"s":""} archivée{sortieList.length>1?"s":""}</ALabel>
           {sortieList.map(s=>(
             <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
-              <div style={{flex:1}}>
-                <div style={{color:t.text,fontSize:13,fontWeight:600}}>{s.title}</div>
-                <div style={{color:t.muted,fontSize:11}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div>
-              </div>
+              <div style={{flex:1}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{s.title}</div><div style={{color:t.muted,fontSize:11}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div></div>
               <button onClick={()=>deleteSortie(s.id)} style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer"}}>✕</button>
             </div>
           ))}
@@ -1036,10 +1135,10 @@ function AdminSorties({t}){
 
 function AdminSecurity({t}){
   const adminPass=useFirebase("config/adminPassword","admin123");
-  const [cur,setCur]=useState("");
-  const [np,setNp]=useState("");
-  const [conf,setConf]=useState("");
-  const [msg,setMsg]=useState(null);
+  const[cur,setCur]=useState("");
+  const[np,setNp]=useState("");
+  const[conf,setConf]=useState("");
+  const[msg,setMsg]=useState(null);
   async function save(){
     if(cur!==adminPass){setMsg({ok:false,text:"Mot de passe actuel incorrect"});return;}
     if(!np){setMsg({ok:false,text:"Le nouveau mot de passe est vide"});return;}
@@ -1047,7 +1146,7 @@ function AdminSecurity({t}){
     await set(ref(db,"config/adminPassword"),np);setCur("");setNp("");setConf("");
     setMsg({ok:true,text:"Mot de passe modifié !"});setTimeout(()=>setMsg(null),3000);
   }
-  const pwRow=(label,val,set)=><div style={{marginBottom:10}}><div style={{color:t.muted,fontSize:12,marginBottom:5}}>{label}</div><input type="password" value={val} onChange={e=>set(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:11,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none"}}/></div>;
+  const pwRow=(label,val,setFn)=><div style={{marginBottom:10}}><div style={{color:t.muted,fontSize:12,marginBottom:5}}>{label}</div><input type="password" value={val} onChange={e=>setFn(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:11,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none"}}/></div>;
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Changer le mot de passe admin</ALabel>
@@ -1061,78 +1160,15 @@ function AdminSecurity({t}){
   );
 }
 
-// ─── Presence tracker ─────────────────────────────────────────────────────────
-function usePresence(currentUser) {
-  useEffect(()=>{
-    if(!currentUser)return;
-    const presRef=ref(db,`presence/${currentUser}`);
-    set(presRef,{online:true,lastSeen:Date.now()});
-    const interval=setInterval(()=>set(presRef,{online:true,lastSeen:Date.now()}),30000);
-    const cleanup=()=>set(presRef,{online:false,lastSeen:Date.now()});
-    window.addEventListener("beforeunload",cleanup);
-    return()=>{clearInterval(interval);cleanup();window.removeEventListener("beforeunload",cleanup);};
-  },[currentUser]);
-}
-
-// ─── User App ─────────────────────────────────────────────────────────────────
-function UserApp({currentUser,onLogout}){
-  const [tab,setTab]=useState("calendar");
-  const themeData=useFirebase("config/theme",DEFAULT_THEME);
-  const appName=useFirebase("config/appName","WhenWeMeet");
-  const t=themeData||DEFAULT_THEME;
-  useEffect(()=>{window._theme=themeData;},[themeData]);
-  usePresence(currentUser);
-  const profiles=useFirebase("profiles",{});
-  const prof=(profiles||{})[currentUser]||{};
-  const col=prof.color||t.accent;
-  const tabs=[{id:"calendar",icon:"📅",label:"Calendrier"},{id:"chat",icon:"💬",label:"Chat"},{id:"friends",icon:"👥",label:"Amis"}];
-
-  return(
-    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",justifyContent:"center"}}>
-      <style>{GLOBAL_CSS}</style>
-      <div className="app-root">
-        {/* Event banner */}
-        <EventBanner t={t}/>
-        {/* Header */}
-        <div style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
-          <div>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:19,letterSpacing:-0.5}}>
-              {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
-            </div>
-            <div style={{color:t.muted,fontSize:10}}>Trouvez la date parfaite ensemble</div>
-          </div>
-          <button onClick={onLogout} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 11px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:12,fontWeight:600}}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff"}}>{currentUser[0].toUpperCase()}</div>
-            {currentUser}
-          </button>
-        </div>
-        {/* Content */}
-        <div style={{flex:1,overflowY:tab==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",minHeight:0}}>
-          {tab==="calendar"&&<CalendarTab currentUser={currentUser}/>}
-          {tab==="chat"&&<ChatTab currentUser={currentUser}/>}
-          {tab==="friends"&&<FriendsTab currentUser={currentUser}/>}
-        </div>
-        {/* Bottom nav */}
-        <div style={{display:"flex",borderTop:`1px solid ${t.border}`,background:t.bg,flexShrink:0,paddingBottom:"env(safe-area-inset-bottom)"}}>
-          {tabs.map(tb=><button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,padding:"11px 0 13px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderTop:tab===tb.id?`2px solid ${t.accent}`:"2px solid transparent",marginTop:-1,minWidth:0}}>
-            <span style={{fontSize:20}}>{tb.icon}</span>
-            <span style={{fontSize:10,fontWeight:600,color:tab===tb.id?t.accentLight:t.muted,whiteSpace:"nowrap"}}>{tb.label}</span>
-          </button>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App(){
-  const [screen,setScreen]=useState("splash");
-  const [currentUser,setCurrentUser]=useState(null);
+  const[screen,setScreen]=useState("splash");
+  const[currentUser,setCurrentUser]=useState(null);
   function handleEnter(mode,user){
     if(mode==="admin"){setScreen("admin");setCurrentUser(null);}
     else{setCurrentUser(user);setScreen("user");}
   }
-  if(screen==="splash")return <SplashScreen onEnter={handleEnter}/>;
-  if(screen==="admin") return <AdminPanel onExit={()=>setScreen("splash")}/>;
-  return <UserApp currentUser={currentUser} onLogout={()=>setScreen("splash")}/>;
+  if(screen==="splash")return<SplashScreen onEnter={handleEnter}/>;
+  if(screen==="admin")return<AdminPanel onExit={()=>setScreen("splash")}/>;
+  return<UserApp currentUser={currentUser} onLogout={()=>setScreen("splash")}/>;
 }
