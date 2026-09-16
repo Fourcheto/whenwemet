@@ -70,7 +70,9 @@ button,input,textarea{font-family:inherit}
   display:flex;flex-direction:column;
   padding-top:env(safe-area-inset-top);
   padding-bottom:env(safe-area-inset-bottom);
+  font-size:15px;
 }
+input,textarea,button{font-size:14px!important}
 `;
 
 // ─── PwInput ──────────────────────────────────────────────────────────────────
@@ -467,11 +469,12 @@ function FriendsTab({currentUser}){
   const counts={};
   users.forEach(u=>{counts[u]={midi:0,soir:0};});
   Object.values(avail||{}).forEach(day=>{if(!day)return;(day.midi||[]).forEach(u=>{if(counts[u])counts[u].midi++;});(day.soir||[]).forEach(u=>{if(counts[u])counts[u].soir++;});});
+  const todayForFriends=fmtDate(new Date().getFullYear(),new Date().getMonth(),new Date().getDate());
   const shared=Object.entries(avail||{}).map(([date,day])=>{
     const midi=Array.isArray(day?.midi)?day.midi:[];
     const soir=Array.isArray(day?.soir)?day.soir:[];
     return{date,midi,soir,total:new Set([...midi,...soir]).size};
-  }).filter(x=>x.total>1).sort((a,b)=>b.total-a.total).slice(0,6);
+  }).filter(x=>x.total>1&&x.date>=todayForFriends).sort((a,b)=>b.total-a.total).slice(0,6);
   const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
   return(
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
@@ -667,17 +670,59 @@ function usePresence(u){
   },[u]);
 }
 
+// ─── Home Tab ─────────────────────────────────────────────────────────────────
+function HomeTab({currentUser,onNavigate,onLogout,t,appName,profiles,event}){
+  const seenKey=`seen_event_${currentUser}`;
+  const hasNewEvent=event&&event.validatedAt&&localStorage.getItem(seenKey)!==(event.validatedAt?.toString()||"");
+  const col=(profiles||{})[currentUser]?.color||t.accent;
+  const menus=[
+    {id:"calendar",icon:"📅",label:"Calendrier"},
+    {id:"chat",    icon:"💬",label:"Chat"},
+    {id:"friends", icon:"👥",label:"Amis"},
+    {id:"events",  icon:"🎉",label:"Événements",badge:hasNewEvent},
+    {id:"themes",  icon:"🎨",label:"Thèmes"},
+  ];
+  return(
+    <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",padding:"16px 14px 20px",gap:14}}>
+      {/* Chip membre */}
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>
+        <div style={{width:46,height:46,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>{currentUser[0].toUpperCase()}</div>
+        <div>
+          <div style={{color:t.text,fontWeight:700,fontSize:16}}>Bonjour, {currentUser} !</div>
+          <div style={{color:t.muted,fontSize:12}}>Que veux-tu faire ?</div>
+        </div>
+      </div>
+      {/* Grille 2x3 */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {menus.slice(0,4).map(m=>(
+          <button key={m.id} onClick={()=>onNavigate(m.id)} style={{padding:"18px 10px",borderRadius:16,background:t.card,border:`1px solid ${m.badge?t.danger+"66":t.border}`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,position:"relative",transition:"all 0.15s"}}>
+            {m.badge&&<div style={{position:"absolute",top:10,right:10,width:9,height:9,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
+            <span style={{fontSize:30}}>{m.icon}</span>
+            <span style={{color:t.text,fontWeight:700,fontSize:14}}>{m.label}</span>
+          </button>
+        ))}
+      </div>
+      {/* Thèmes pleine largeur */}
+      <button onClick={()=>onNavigate("themes")} style={{padding:"14px",borderRadius:16,background:t.card,border:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
+        <span style={{fontSize:26}}>🎨</span>
+        <span style={{color:t.text,fontWeight:700,fontSize:14}}>Thèmes</span>
+      </button>
+
+    </div>
+  );
+}
+
 // ─── User App ─────────────────────────────────────────────────────────────────
 function UserApp({currentUser,onLogout}){
-  const[tab,setTab]=useState("calendar");
+  const[tab,setTab]=useState("home");
   const[,rerender]=useState(0);
   const themeData=useFirebase("config/theme",DEFAULT_THEME);
   const profiles=useFirebase("profiles",{});
   const appName=useFirebase("config/appName","WhenWeMeet");
+  const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
   const event=useFirebase("config/validatedEvent",null);
   usePresence(currentUser);
 
-  // Thème personnel du membre
   useEffect(()=>{
     const prof=(profiles||{})[currentUser]||{};
     const key=prof.theme||"cosmos";
@@ -691,50 +736,62 @@ function UserApp({currentUser,onLogout}){
   },[]);
 
   const t=C();
-  const col=(profiles||{})[currentUser]?.color||t.accent;
   const seenKey=`seen_event_${currentUser}`;
   const hasNewEvent=event&&event.validatedAt&&localStorage.getItem(seenKey)!==(event.validatedAt?.toString()||"");
 
-  const tabs=[
-    {id:"calendar",icon:"📅",label:"Calendrier"},
-    {id:"chat",    icon:"💬",label:"Chat"},
-    {id:"friends", icon:"👥",label:"Amis"},
-    {id:"events",  icon:"🎉",label:"Événements",badge:hasNewEvent},
-    {id:"themes",  icon:"🎨",label:"Thèmes"},
-  ];
+  const isHome=tab==="home";
 
   return(
     <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",justifyContent:"center"}}>
       <style>{GCSS}</style>
       <div className="app-root">
-        <EventBanner t={t} currentUser={currentUser} onNavigate={setTab}/>
+        {!isHome&&<EventBanner t={t} currentUser={currentUser} onNavigate={setTab}/>}
+        {/* Header */}
         <div style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
           <div>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,letterSpacing:-0.5}}>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:19,letterSpacing:-0.5}}>
               {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
             </div>
-            <div style={{color:t.muted,fontSize:10}}>Trouvez la date parfaite ensemble</div>
+            <div style={{color:t.muted,fontSize:11}}>{appSub}</div>
           </div>
-          <button onClick={onLogout} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:12,fontWeight:600}}>
-            Quitter
-          </button>
+          <div style={{display:"flex",gap:8}}>
+            {!isHome&&(
+              <button onClick={()=>setTab("home")} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:13,fontWeight:600}}>
+                Accueil
+              </button>
+            )}
+            <button onClick={onLogout} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:13,fontWeight:600}}>
+              Quitter
+            </button>
+          </div>
         </div>
+        {/* Contenu */}
         <div style={{flex:1,overflowY:tab==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",minHeight:0}}>
+          {tab==="home"    &&<HomeTab currentUser={currentUser} onNavigate={setTab} onLogout={onLogout} t={t} appName={appName} profiles={profiles} event={event}/>}
           {tab==="calendar"&&<CalendarTab currentUser={currentUser}/>}
           {tab==="chat"    &&<ChatTab currentUser={currentUser}/>}
           {tab==="friends" &&<FriendsTab currentUser={currentUser}/>}
           {tab==="events"  &&<EventsTab currentUser={currentUser}/>}
           {tab==="themes"  &&<ThemesTab currentUser={currentUser}/>}
         </div>
-        <div style={{display:"flex",borderTop:`1px solid ${t.border}`,background:t.bg,flexShrink:0,paddingBottom:"env(safe-area-inset-bottom)"}}>
-          {tabs.map(tb=>(
-            <button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,padding:"10px 0 12px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderTop:tab===tb.id?`2px solid ${t.accent}`:"2px solid transparent",marginTop:-1,minWidth:0,position:"relative"}}>
-              <span style={{fontSize:18}}>{tb.icon}</span>
-              {tb.badge&&<div style={{position:"absolute",top:6,right:"calc(50% - 14px)",width:8,height:8,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
-              <span style={{fontSize:9,fontWeight:600,color:tab===tb.id?t.accentLight:t.muted,whiteSpace:"nowrap"}}>{tb.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Barre de navigation (masquée sur home) */}
+        {!isHome&&(
+          <div style={{display:"flex",borderTop:`1px solid ${t.border}`,background:t.bg,flexShrink:0,paddingBottom:"env(safe-area-inset-bottom)"}}>
+            {[
+              {id:"calendar",icon:"📅",label:"Calendrier"},
+              {id:"chat",    icon:"💬",label:"Chat"},
+              {id:"friends", icon:"👥",label:"Amis"},
+              {id:"events",  icon:"🎉",label:"Événements",badge:hasNewEvent},
+              {id:"themes",  icon:"🎨",label:"Thèmes"},
+            ].map(tb=>(
+              <button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,padding:"10px 0 12px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderTop:tab===tb.id?`2px solid ${t.accent}`:"2px solid transparent",marginTop:-1,minWidth:0,position:"relative"}}>
+                <span style={{fontSize:20}}>{tb.icon}</span>
+                {tb.badge&&<div style={{position:"absolute",top:6,right:"calc(50% - 14px)",width:8,height:8,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
+                <span style={{fontSize:10,fontWeight:600,color:tab===tb.id?t.accentLight:t.muted,whiteSpace:"nowrap"}}>{tb.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -759,7 +816,7 @@ function AdminPanel({onExit}){
     {id:"security",icon:"🔐",label:"Sécurité"},
   ];
   return(
-    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",flexDirection:"column",maxWidth:430,margin:"0 auto",paddingTop:"env(safe-area-inset-top)"}}>
+    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",flexDirection:"column",width:"100%",maxWidth:430,margin:"0 auto",paddingTop:"env(safe-area-inset-top)"}}>
       <style>{GCSS}</style>
       <div style={{padding:"14px 16px 11px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
         <div>
@@ -1032,18 +1089,24 @@ function AdminEvent({t}){
   const textareaStyle={width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80};
   return(
     <div style={{padding:"8px 0 20px"}}>
-      {event&&event.date&&(
-        <ACard t={t}>
-          <ALabel t={t}>Événement actuel</ALabel>
-          <div style={{padding:"12px",background:`${t.green}11`,borderRadius:12,border:`1px solid ${t.green}33`,marginBottom:10}}>
-            <div style={{color:t.text,fontWeight:700,fontSize:15}}>{event.title}</div>
-            <div style={{color:t.muted,fontSize:12,marginTop:4}}>{new Date(event.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
-            {event.message&&<div style={{color:t.muted,fontSize:12,marginTop:4,fontStyle:"italic"}}>"{event.message}"</div>}
-            {event.address&&<div style={{color:t.muted,fontSize:12,marginTop:2}}>📍 {event.address}</div>}
-          </div>
-          <button onClick={clearEvent} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:13,cursor:"pointer"}}>🗑 Supprimer l'événement</button>
-        </ACard>
-      )}
+      {(()=>{
+        if(!event||!event.date)return null;
+        const evDate=new Date(event.date+"T12:00:00");
+        const isPastEvent=evDate<new Date();
+        return(
+          <ACard t={t}>
+            <ALabel t={t}>Événement {isPastEvent?"passé":"actuel"}</ALabel>
+            <div style={{padding:"12px",background:isPastEvent?`${t.danger}11`:`${t.green}11`,borderRadius:12,border:`1px solid ${isPastEvent?t.danger+"33":t.green+"33"}`,marginBottom:10}}>
+              <div style={{color:t.text,fontWeight:700,fontSize:15}}>{event.title}</div>
+              <div style={{color:t.muted,fontSize:12,marginTop:4}}>{evDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+              {isPastEvent&&<div style={{color:t.danger,fontSize:12,marginTop:4,fontWeight:600}}>⚠️ Cet événement est passé — pensez à l'archiver !</div>}
+              {event.message&&<div style={{color:t.muted,fontSize:12,marginTop:4,fontStyle:"italic"}}>"{event.message}"</div>}
+              {event.address&&<div style={{color:t.muted,fontSize:12,marginTop:2}}>📍 {event.address}</div>}
+            </div>
+            <button onClick={clearEvent} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:13,cursor:"pointer"}}>🗑 Supprimer l'événement</button>
+          </ACard>
+        );
+      })()}
       <ACard t={t}>
         <ALabel t={t}>Valider un nouvel événement</ALabel>
         <div style={{color:t.muted,fontSize:12,marginBottom:6}}>Titre *</div>
@@ -1082,11 +1145,20 @@ function AdminSorties({t}){
   const[selSlot,setSelSlot]=useState("les-deux");
   const[saved,setSaved]=useState(false);
   const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
-  const suggestions=Object.entries(avail||{}).map(([date,day])=>{
-    const midi=Array.isArray(day?.midi)?day.midi:[];
-    const soir=Array.isArray(day?.soir)?day.soir:[];
-    return{date,midi,soir,total:new Set([...midi,...soir]).size};
-  }).filter(x=>x.total>0).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8);
+  const event2=useFirebase("config/validatedEvent",null);
+  const now15=new Date();
+  const today15=fmtDate(now15.getFullYear(),now15.getMonth(),now15.getDate());
+  const limit15=new Date(now15);limit15.setDate(limit15.getDate()-15);
+  const limit15str=fmtDate(limit15.getFullYear(),limit15.getMonth(),limit15.getDate());
+  const suggestions=(()=>{
+    if(!event2||!event2.date)return[];
+    const evDate=event2.date;
+    if(evDate>today15||evDate<limit15str)return[];
+    const day=(avail||{})[evDate]||{};
+    const midi=Array.isArray(day.midi)?day.midi:[];
+    const soir=Array.isArray(day.soir)?day.soir:[];
+    return[{date:evDate,midi,soir,total:new Set([...midi,...soir]).size}];
+  })();
   async function archive(){
     if(!selDate||!title.trim())return;
     const day=(avail||{})[selDate]||{};
