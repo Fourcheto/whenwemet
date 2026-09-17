@@ -60,6 +60,7 @@ const GCSS=`
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+@keyframes blink-border{0%,100%{border-color:var(--accent,#6C63FF);box-shadow:0 0 12px var(--accent,#6C63FF)44}50%{border-color:transparent;box-shadow:none}}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow-x:hidden}
 button,input,textarea{font-family:inherit}
@@ -657,6 +658,129 @@ function ThemesTab({currentUser}){
   );
 }
 
+
+// ─── Vote Tab ─────────────────────────────────────────────────────────────────
+function VoteTab({currentUser}){
+  const t=C();
+  const[showForm,setShowForm]=useState(false);
+  const[category,setCategory]=useState("");
+  const[description,setDescription]=useState("");
+  const[saving,setSaving]=useState(false);
+  const proposals=useFirebase("proposals",{});
+  const usersObj=useFirebase("users",{});
+  const profiles=useFirebase("profiles",{});
+  const adminPass=useFirebase("config/adminPassword","admin123");
+  const isAdmin=false; // pas d'accès admin ici
+
+  const CATEGORIES=["🍽 Restaurant","🍺 Bar","🌳 Pique-nique","🎭 Autre"];
+  const propList=Object.entries(proposals||{}).map(([id,p])=>({id,...p})).sort((a,b)=>{
+    const votesA=Object.values(a.votes||{}).filter(v=>v==="pour").length;
+    const votesB=Object.values(b.votes||{}).filter(v=>v==="pour").length;
+    return votesB-votesA;
+  });
+
+  async function addProposal(){
+    if(!category||!description.trim())return;
+    setSaving(true);
+    await push(ref(db,"proposals"),{
+      category,description:description.trim(),
+      author:currentUser,createdAt:Date.now(),votes:{}
+    });
+    setCategory("");setDescription("");setShowForm(false);setSaving(false);
+  }
+  async function vote(propId,val){
+    const prop=(proposals||{})[propId];
+    const votes=prop?.votes||{};
+    if(votes[currentUser]===val){
+      const newV={...votes};delete newV[currentUser];
+      await set(ref(db,`proposals/${propId}/votes`),newV);
+    } else {
+      await update(ref(db,`proposals/${propId}/votes`),{[currentUser]:val});
+    }
+  }
+  async function deleteProposal(propId){
+    await remove(ref(db,`proposals/${propId}`));
+  }
+
+  return(
+    <div style={{padding:"10px 12px",overflowX:"hidden"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+        <div>
+          <div style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Syne,sans-serif"}}>🗳️ Voter pour un lieu</div>
+          <div style={{color:t.muted,fontSize:12}}>Propose et vote pour votre prochaine sortie !</div>
+        </div>
+        <button onClick={()=>setShowForm(s=>!s)} style={{padding:"8px 14px",borderRadius:12,background:showForm?t.card:t.accent,border:`1px solid ${showForm?t.border:t.accent}`,color:showForm?t.muted:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+          {showForm?"Annuler":"+ Proposer"}
+        </button>
+      </div>
+
+      {/* Formulaire */}
+      {showForm&&(
+        <div style={{background:t.card,border:`1px solid ${t.accent}55`,borderRadius:16,padding:"14px",marginBottom:14}}>
+          <div style={{color:t.muted,fontSize:12,fontWeight:600,marginBottom:8}}>Catégorie</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+            {CATEGORIES.map(c=>(
+              <button key={c} onClick={()=>setCategory(c)} style={{padding:"6px 12px",borderRadius:20,background:category===c?t.accent:t.bg,border:`1px solid ${category===c?t.accent:t.border}`,color:category===c?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                {c}
+              </button>
+            ))}
+          </div>
+          {/* Champ libre si "Autre" ou pour compléter */}
+          <div style={{color:t.muted,fontSize:12,fontWeight:600,marginBottom:6}}>Nom du lieu ou description</div>
+          <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Décris le lieu, l'ambiance, le budget..." style={{width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80}}/>
+          <button onClick={addProposal} disabled={!category||!description.trim()||saving} style={{width:"100%",marginTop:10,padding:"12px",borderRadius:12,background:category&&description.trim()?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:category&&description.trim()?"pointer":"not-allowed"}}>
+            {saving?"Envoi...":"✅ Soumettre ma proposition"}
+          </button>
+        </div>
+      )}
+
+      {/* Liste des propositions */}
+      {propList.length===0?(
+        <div style={{textAlign:"center",padding:"40px 20px"}}>
+          <div style={{fontSize:40,marginBottom:10}}>🗳️</div>
+          <div style={{color:t.text,fontWeight:600,fontSize:15,marginBottom:6}}>Aucune proposition pour l'instant</div>
+          <div style={{color:t.muted,fontSize:13}}>Sois le premier à proposer un lieu !</div>
+        </div>
+      ):(
+        propList.map((p,idx)=>{
+          const votes=p.votes||{};
+          const pour=Object.values(votes).filter(v=>v==="pour").length;
+          const contre=Object.values(votes).filter(v=>v==="contre").length;
+          const myVote=votes[currentUser];
+          const canDelete=p.author===currentUser;
+          const prof=(profiles||{})[p.author]||{};
+          const col=prof.color||t.accent;
+          return(
+            <div key={p.id} style={{background:t.card,border:`1px solid ${idx===0&&pour>0?t.green+"66":t.border}`,borderRadius:16,padding:"14px",marginBottom:10,position:"relative"}}>
+              {idx===0&&pour>0&&<div style={{position:"absolute",top:-8,left:14,background:t.green,color:"#000",fontSize:10,fontWeight:800,padding:"2px 10px",borderRadius:20}}>🏆 Favori</div>}
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:8}}>
+                <div style={{flex:1}}>
+                  <div style={{color:t.accent,fontSize:12,fontWeight:700,marginBottom:3}}>{p.category}</div>
+                  <div style={{color:t.text,fontSize:14,lineHeight:1.4}}>{p.description}</div>
+                </div>
+                {canDelete&&<button onClick={()=>deleteProposal(p.id)} style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                <div style={{width:20,height:20,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>{p.author[0]}</div>
+                <span style={{color:t.muted,fontSize:11}}>par {p.author}</span>
+              </div>
+              {/* Votes */}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>vote(p.id,"pour")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="pour"?`${t.green}33`:t.bg,border:`2px solid ${myVote==="pour"?t.green:t.border}`,color:myVote==="pour"?t.green:t.muted,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  👍 Pour <span style={{background:t.green+"33",borderRadius:10,padding:"1px 7px",color:t.green,fontSize:12}}>{pour}</span>
+                </button>
+                <button onClick={()=>vote(p.id,"contre")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="contre"?`${t.danger}22`:t.bg,border:`2px solid ${myVote==="contre"?t.danger:t.border}`,color:myVote==="contre"?t.danger:t.muted,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  👎 Contre <span style={{background:t.danger+"22",borderRadius:10,padding:"1px 7px",color:t.danger,fontSize:12}}>{contre}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ─── Presence ─────────────────────────────────────────────────────────────────
 function usePresence(u){
   useEffect(()=>{
@@ -671,7 +795,7 @@ function usePresence(u){
 }
 
 // ─── Home Tab ─────────────────────────────────────────────────────────────────
-function HomeTab({currentUser,onNavigate,onLogout,t,appName,profiles,event}){
+function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
   const seenKey=`seen_event_${currentUser}`;
   const hasNewEvent=event&&event.validatedAt&&localStorage.getItem(seenKey)!==(event.validatedAt?.toString()||"");
   const col=(profiles||{})[currentUser]?.color||t.accent;
@@ -680,34 +804,70 @@ function HomeTab({currentUser,onNavigate,onLogout,t,appName,profiles,event}){
     {id:"chat",    icon:"💬",label:"Chat"},
     {id:"friends", icon:"👥",label:"Amis"},
     {id:"events",  icon:"🎉",label:"Événements",badge:hasNewEvent},
-    {id:"themes",  icon:"🎨",label:"Thèmes"},
   ];
+  const hasEvent=event&&event.date;
+  const eventDate=hasEvent?new Date(event.date+"T12:00:00"):null;
+  const diff=eventDate?Math.ceil((eventDate-new Date())/(1000*60*60*24)):null;
+  const past=diff!==null&&diff<0;
   return(
-    <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",padding:"16px 14px 20px",gap:14}}>
+    <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",padding:"14px 14px 14px",gap:12}}>
       {/* Chip membre */}
       <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>
-        <div style={{width:46,height:46,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>{currentUser[0].toUpperCase()}</div>
+        <div style={{width:44,height:44,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>{currentUser[0].toUpperCase()}</div>
         <div>
           <div style={{color:t.text,fontWeight:700,fontSize:16}}>Bonjour, {currentUser} !</div>
           <div style={{color:t.muted,fontSize:12}}>Que veux-tu faire ?</div>
         </div>
       </div>
-      {/* Grille 2x3 */}
+      {/* Grille 2x2 menus principaux */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {menus.slice(0,4).map(m=>(
-          <button key={m.id} onClick={()=>onNavigate(m.id)} style={{padding:"18px 10px",borderRadius:16,background:t.card,border:`1px solid ${m.badge?t.danger+"66":t.border}`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,position:"relative",transition:"all 0.15s"}}>
+        {menus.map(m=>(
+          <button key={m.id} onClick={()=>onNavigate(m.id)} style={{padding:"14px 10px",borderRadius:16,background:t.card,border:`1px solid ${m.badge?t.danger+"66":t.border}`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:7,position:"relative"}}>
             {m.badge&&<div style={{position:"absolute",top:10,right:10,width:9,height:9,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
-            <span style={{fontSize:30}}>{m.icon}</span>
-            <span style={{color:t.text,fontWeight:700,fontSize:14}}>{m.label}</span>
+            <span style={{fontSize:26}}>{m.icon}</span>
+            <span style={{color:t.text,fontWeight:700,fontSize:13}}>{m.label}</span>
           </button>
         ))}
       </div>
-      {/* Thèmes pleine largeur */}
-      <button onClick={()=>onNavigate("themes")} style={{padding:"14px",borderRadius:16,background:t.card,border:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
-        <span style={{fontSize:26}}>🎨</span>
-        <span style={{color:t.text,fontWeight:700,fontSize:14}}>Thèmes</span>
-      </button>
-
+      {/* Ligne Thèmes + Voter */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <button onClick={()=>onNavigate("themes")} style={{padding:"12px",borderRadius:16,background:t.card,border:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <span style={{fontSize:22}}>🎨</span>
+          <span style={{color:t.text,fontWeight:700,fontSize:13}}>Thèmes</span>
+        </button>
+        <button onClick={()=>onNavigate("vote")} style={{padding:"12px",borderRadius:16,background:`linear-gradient(135deg,${t.accent}44,${t.green}22)`,border:`2px solid ${t.accent}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <span style={{fontSize:22}}>🗳️</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:13}}>Voter !</span>
+        </button>
+      </div>
+      {/* Bannière événement */}
+      <div style={{marginTop:4}}>
+        {hasEvent?(
+          <div onClick={()=>onNavigate("events")} style={{cursor:"pointer",borderRadius:16,overflow:"hidden",border:`2px solid ${t.accent}`,animation:"blink-border 1.8s ease-in-out infinite",boxShadow:`0 0 18px ${t.accent}44`}}>
+            {event.imageUrl&&<img src={event.imageUrl} alt="" style={{width:"100%",maxHeight:130,objectFit:"cover",display:"block"}}/>}
+            <div style={{background:`linear-gradient(135deg,${t.accent}22,${t.green}11)`,padding:"14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{fontSize:20}}>🎉</span>
+                <div style={{color:t.accent,fontWeight:800,fontSize:15}}>{event.title}</div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                <div style={{display:"flex",alignItems:"center",gap:7}}><span>📅</span><span style={{color:t.text,fontSize:13}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</span></div>
+                {!past&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>⏳</span><span style={{color:t.green,fontSize:13,fontWeight:600}}>Dans {diff} jour{diff>1?"s":""} !</span></div>}
+                {past&&<div style={{color:t.danger,fontSize:12,fontWeight:600}}>✅ Événement passé</div>}
+                {event.slot&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>{event.slot==="midi"?"🍽":"🌙"}</span><span style={{color:t.muted,fontSize:12}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi & soir"}</span></div>}
+                {event.address&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>📍</span><span style={{color:t.muted,fontSize:12}}>{event.address}</span></div>}
+                {event.message&&<div style={{background:`${t.green}11`,borderRadius:8,padding:"7px 10px",marginTop:3}}><span style={{color:t.text,fontSize:12,fontStyle:"italic"}}>"{event.message}"</span></div>}
+              </div>
+            </div>
+          </div>
+        ):(
+          <div style={{borderRadius:16,border:`2px dashed ${t.border}`,padding:"18px",textAlign:"center",background:t.card}}>
+            <div style={{fontSize:34,marginBottom:6}}>😢 ⏳</div>
+            <div style={{color:t.muted,fontSize:13,fontWeight:600}}>Aucun événement prévu</div>
+            <div style={{color:t.muted,fontSize:11,marginTop:3}}>L'administrateur n'a pas encore validé de date...</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -745,7 +905,7 @@ function UserApp({currentUser,onLogout}){
     <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",justifyContent:"center"}}>
       <style>{GCSS}</style>
       <div className="app-root">
-        {!isHome&&<EventBanner t={t} currentUser={currentUser} onNavigate={setTab}/>}
+
         {/* Header */}
         <div style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
           <div>
@@ -767,12 +927,13 @@ function UserApp({currentUser,onLogout}){
         </div>
         {/* Contenu */}
         <div style={{flex:1,overflowY:tab==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",minHeight:0}}>
-          {tab==="home"    &&<HomeTab currentUser={currentUser} onNavigate={setTab} onLogout={onLogout} t={t} appName={appName} profiles={profiles} event={event}/>}
+          {tab==="home"    &&<HomeTab currentUser={currentUser} onNavigate={setTab} onLogout={onLogout} t={t} appName={appName} profiles={profiles} event={event} appSub={appSub}/>}
           {tab==="calendar"&&<CalendarTab currentUser={currentUser}/>}
           {tab==="chat"    &&<ChatTab currentUser={currentUser}/>}
           {tab==="friends" &&<FriendsTab currentUser={currentUser}/>}
           {tab==="events"  &&<EventsTab currentUser={currentUser}/>}
           {tab==="themes"  &&<ThemesTab currentUser={currentUser}/>}
+          {tab==="vote"    &&<VoteTab currentUser={currentUser}/>}
         </div>
         {/* Barre de navigation (masquée sur home) */}
         {!isHome&&(
@@ -1069,6 +1230,7 @@ function AdminEvent({t}){
   const[message,setMessage]=useState("");
   const[address,setAddress]=useState("");
   const[mapsUrl,setMapsUrl]=useState("");
+  const[imageUrl,setImageUrl]=useState("");
   const[saved,setSaved]=useState(false);
   const users=Object.keys(usersObj||{});
   const suggestions=Object.entries(avail||{}).map(([date,day])=>{
@@ -1131,6 +1293,8 @@ function AdminEvent({t}){
         <AInput value={address} onChange={e=>setAddress(e.target.value)} t={t} placeholder="Ex: Restaurant Le Bistrot, 12 rue de la Paix, Paris"/>
         <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>🗺️ Lien Google Maps</div>
         <AInput value={mapsUrl} onChange={e=>setMapsUrl(e.target.value)} t={t} placeholder="https://maps.google.com/..."/>
+        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>🖼️ Image ou GIF (lien URL)</div>
+        <AInput value={imageUrl} onChange={e=>setImageUrl(e.target.value)} t={t} placeholder="https://media.giphy.com/..."/>
         <SaveBtn onClick={validate} t={t} label={saved?"✓ Événement validé !":"🎯 Valider et notifier"} saved={saved}/>
       </ACard>
     </div>
