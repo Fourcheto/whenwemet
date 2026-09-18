@@ -540,7 +540,12 @@ function EventsTab({currentUser}){
   },[event,currentUser]);
   const hasEvent=event&&event.date;
   const eventDate=hasEvent?new Date(event.date+"T12:00:00"):null;
-  const diff=eventDate?Math.ceil((eventDate-new Date())/(1000*60*60*24)):null;
+  const diff=(()=>{
+    if(!eventDate)return null;
+    const today=new Date();today.setHours(0,0,0,0);
+    const ev=new Date(eventDate);ev.setHours(0,0,0,0);
+    return Math.round((ev-today)/(1000*60*60*24));
+  })();
   const past=diff!==null&&diff<0;
   return(
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
@@ -576,7 +581,7 @@ function EventsTab({currentUser}){
                 {event.mapsUrl&&(
                   <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:12,textDecoration:"none"}}>
                     <span style={{fontSize:18}}>🗺️</span>
-                    <span style={{color:t.accent,fontSize:14,fontWeight:600}}>Voir sur Google Maps</span>
+                    <span style={{color:t.accent,fontSize:14,fontWeight:600}}>Voir l'itinéraire (Maps)</span>
                   </a>
                 )}
                 {event.message&&(
@@ -660,7 +665,7 @@ function ThemesTab({currentUser}){
 
 
 // ─── Vote Tab ─────────────────────────────────────────────────────────────────
-function VoteTab({currentUser}){
+function VoteTab({currentUser,isAdmin=false}){
   const t=C();
   const[showForm,setShowForm]=useState(false);
   const[category,setCategory]=useState("");
@@ -670,7 +675,7 @@ function VoteTab({currentUser}){
   const usersObj=useFirebase("users",{});
   const profiles=useFirebase("profiles",{});
   const adminPass=useFirebase("config/adminPassword","admin123");
-  const isAdmin=false; // pas d'accès admin ici
+
 
   const CATEGORIES=["🍽 Restaurant","🍺 Bar","🌳 Pique-nique","🎭 Autre"];
   const propList=Object.entries(proposals||{}).map(([id,p])=>({id,...p})).sort((a,b)=>{
@@ -747,7 +752,7 @@ function VoteTab({currentUser}){
           const pour=Object.values(votes).filter(v=>v==="pour").length;
           const contre=Object.values(votes).filter(v=>v==="contre").length;
           const myVote=votes[currentUser];
-          const canDelete=p.author===currentUser;
+          const canDelete=p.author===currentUser||isAdmin;
           const prof=(profiles||{})[p.author]||{};
           const col=prof.color||t.accent;
           return(
@@ -764,8 +769,8 @@ function VoteTab({currentUser}){
                 <div style={{width:20,height:20,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>{p.author[0]}</div>
                 <span style={{color:t.muted,fontSize:11}}>par {p.author}</span>
               </div>
-              {/* Votes */}
-              <div style={{display:"flex",gap:8}}>
+              {/* Votes boutons */}
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <button onClick={()=>vote(p.id,"pour")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="pour"?`${t.green}33`:t.bg,border:`2px solid ${myVote==="pour"?t.green:t.border}`,color:myVote==="pour"?t.green:t.muted,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                   👍 Pour <span style={{background:t.green+"33",borderRadius:10,padding:"1px 7px",color:t.green,fontSize:12}}>{pour}</span>
                 </button>
@@ -773,6 +778,17 @@ function VoteTab({currentUser}){
                   👎 Contre <span style={{background:t.danger+"22",borderRadius:10,padding:"1px 7px",color:t.danger,fontSize:12}}>{contre}</span>
                 </button>
               </div>
+              {/* Liste des votants */}
+              {Object.entries(votes).length>0&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {Object.entries(votes).map(([voter,v])=>(
+                    <div key={voter} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:20,background:v==="pour"?`${t.green}22`:`${t.danger}22`,border:`1px solid ${v==="pour"?t.green+"44":t.danger+"44"}`}}>
+                      <span style={{fontSize:11}}>{v==="pour"?"👍":"👎"}</span>
+                      <span style={{color:v==="pour"?t.green:t.danger,fontSize:11,fontWeight:600}}>{voter}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })
@@ -807,7 +823,12 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
   ];
   const hasEvent=event&&event.date;
   const eventDate=hasEvent?new Date(event.date+"T12:00:00"):null;
-  const diff=eventDate?Math.ceil((eventDate-new Date())/(1000*60*60*24)):null;
+  const diff=(()=>{
+    if(!eventDate)return null;
+    const today=new Date();today.setHours(0,0,0,0);
+    const ev=new Date(eventDate);ev.setHours(0,0,0,0);
+    return Math.round((ev-today)/(1000*60*60*24));
+  })();
   const past=diff!==null&&diff<0;
   return(
     <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",padding:"14px 14px 14px",gap:12}}>
@@ -848,15 +869,21 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
             <div style={{background:`linear-gradient(135deg,${t.accent}22,${t.green}11)`,padding:"14px"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                 <span style={{fontSize:20}}>🎉</span>
-                <div style={{color:t.accent,fontWeight:800,fontSize:15}}>{event.title}</div>
+                <div style={{color:t.accent,fontWeight:800,fontSize:18}}>{event.title}</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                <div style={{display:"flex",alignItems:"center",gap:7}}><span>📅</span><span style={{color:t.text,fontSize:13}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</span></div>
-                {!past&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>⏳</span><span style={{color:t.green,fontSize:13,fontWeight:600}}>Dans {diff} jour{diff>1?"s":""} !</span></div>}
+                <div style={{display:"flex",alignItems:"center",gap:7}}><span>📅</span><span style={{color:t.text,fontSize:14,fontWeight:600}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</span></div>
+                {!past&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>⏳</span><span style={{color:t.green,fontSize:15,fontWeight:700}}>Dans {diff} jour{diff>1?"s":""} !</span></div>}
                 {past&&<div style={{color:t.danger,fontSize:12,fontWeight:600}}>✅ Événement passé</div>}
                 {event.slot&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>{event.slot==="midi"?"🍽":"🌙"}</span><span style={{color:t.muted,fontSize:12}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi & soir"}</span></div>}
-                {event.address&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>📍</span><span style={{color:t.muted,fontSize:12}}>{event.address}</span></div>}
-                {event.message&&<div style={{background:`${t.green}11`,borderRadius:8,padding:"7px 10px",marginTop:3}}><span style={{color:t.text,fontSize:12,fontStyle:"italic"}}>"{event.message}"</span></div>}
+                {event.address&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>📍</span><span style={{color:t.muted,fontSize:13}}>{event.address}</span></div>}
+                {event.mapsUrl&&(
+                  <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:10,textDecoration:"none",marginTop:2}}>
+                    <span style={{fontSize:16}}>🗺️</span>
+                    <span style={{color:t.accent,fontSize:13,fontWeight:600}}>Voir l'itinéraire</span>
+                  </a>
+                )}
+                {event.message&&<div style={{background:`${t.green}11`,borderRadius:8,padding:"8px 12px",marginTop:2}}><span style={{color:t.text,fontSize:13,fontStyle:"italic"}}>"{event.message}"</span></div>}
               </div>
             </div>
           </div>
@@ -912,7 +939,7 @@ function UserApp({currentUser,onLogout}){
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:19,letterSpacing:-0.5}}>
               {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
             </div>
-            <div style={{color:t.muted,fontSize:11}}>{appSub}</div>
+            <div style={{color:t.muted,fontSize:13}}>{appSub}</div>
           </div>
           <div style={{display:"flex",gap:8}}>
             {!isHome&&(
@@ -933,7 +960,7 @@ function UserApp({currentUser,onLogout}){
           {tab==="friends" &&<FriendsTab currentUser={currentUser}/>}
           {tab==="events"  &&<EventsTab currentUser={currentUser}/>}
           {tab==="themes"  &&<ThemesTab currentUser={currentUser}/>}
-          {tab==="vote"    &&<VoteTab currentUser={currentUser}/>}
+          {tab==="vote"    &&<VoteTab currentUser={currentUser} isAdmin={false}/>}
         </div>
         {/* Barre de navigation (masquée sur home) */}
         {!isHome&&(
@@ -975,23 +1002,24 @@ function AdminPanel({onExit}){
     {id:"event",icon:"🎯",label:"Événement"},
     {id:"sorties",icon:"📖",label:"Sorties"},
     {id:"security",icon:"🔐",label:"Sécurité"},
+    {id:"votes",icon:"🗳️",label:"Votes"},
   ];
   return(
-    <div style={{minHeight:"100vh",minHeight:"100dvh",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",flexDirection:"column",width:"100%",maxWidth:430,margin:"0 auto",paddingTop:"env(safe-area-inset-top)"}}>
+    <div style={{minHeight:"100vh",minHeight:"100dvh",width:"100%",background:t.bg,fontFamily:"Inter,sans-serif",display:"flex",flexDirection:"column",paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)"}}>
       <style>{GCSS}</style>
       <div style={{padding:"14px 16px 11px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
         <div>
-          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:17,color:t.text}}>⚙️ {appName}</div>
-          <div style={{color:t.muted,fontSize:11}}>{appSub}</div>
+          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:t.text}}>⚙️ {appName}</div>
+          <div style={{color:t.muted,fontSize:13}}>{appSub}</div>
         </div>
         <button onClick={onExit} style={{padding:"8px 14px",borderRadius:20,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,cursor:"pointer"}}>Quitter</button>
       </div>
       {/* Menus admin sur 2 rangées de 4 */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,padding:"10px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,padding:"12px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
         {sections.map(s=>(
-          <button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"8px 4px",borderRadius:12,background:section===s.id?t.accent:t.card,border:`1px solid ${section===s.id?t.accent:t.border}`,color:section===s.id?"#fff":t.muted,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+          <button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"14px 6px",borderRadius:14,background:section===s.id?t.accent:t.card,border:`1px solid ${section===s.id?t.accent:t.border}`,color:section===s.id?"#fff":t.muted,fontWeight:700,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,minHeight:80}}>
             <span style={{fontSize:16}}>{s.icon}</span>
-            <span style={{fontSize:9,whiteSpace:"nowrap"}}>{s.label}</span>
+            <span style={{fontSize:12,whiteSpace:"nowrap",textAlign:"center",lineHeight:1.2}}>{s.label}</span>
           </button>
         ))}
       </div>
@@ -1004,15 +1032,16 @@ function AdminPanel({onExit}){
         {section==="event"    &&<AdminEvent t={t}/>}
         {section==="sorties"  &&<AdminSorties t={t}/>}
         {section==="security" &&<AdminSecurity t={t}/>}
+        {section==="votes"    &&<VoteTab currentUser="admin" isAdmin={true}/>}
       </div>
     </div>
   );
 }
 
 function ACard({children,t}){return<div style={{margin:"10px 12px",padding:"14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>{children}</div>;}
-function ALabel({children,t}){return<div style={{color:t.muted,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{children}</div>;}
+function ALabel({children,t}){return<div style={{color:t.muted,fontSize:13,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>{children}</div>;}
 function SaveBtn({onClick,t,label="Enregistrer",saved}){return<button onClick={onClick} style={{padding:"11px",borderRadius:12,marginTop:10,background:saved?t.green:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",width:"100%",transition:"background 0.3s"}}>{label}</button>;}
-function AInput({value,onChange,t,placeholder=""}){return<input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:14,outline:"none"}}/>;}
+function AInput({value,onChange,t,placeholder=""}){return<input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"13px 16px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:15,outline:"none"}}/>;}
 
 function AdminHome({t,onNav}){
   const users=useFirebase("users",{});
