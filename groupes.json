@@ -1,0 +1,57 @@
+{
+  "amis": {
+    "nom": "Les Amis",
+    "type": "permanent",
+    "ordre": 1,
+    "createdAt": 1789840000000,
+    "membres": {
+      "BH": true,
+      "Christophe": true,
+      "Corentin": true,
+      "Damien": true,
+      "Eli": true,
+      "Franck": true,
+      "JFC": true,
+      "Jo": true,
+      "Sofiane": true,
+      "Steph D": true,
+      "Stéphanie L": true
+    }
+  },
+  "famille": {
+    "nom": "La Famille",
+    "type": "permanent",
+    "ordre": 2,
+    "createdAt": 1789840000000,
+    "membres": {
+      "Jo": true
+    }
+  },
+  "collegues": {
+    "nom": "Les Collègues de travail",
+    "type": "permanent",
+    "ordre": 3,
+    "createdAt": 1789840000000,
+    "membres": {
+      "Jo": true
+    }
+  },
+  "afterwork": {
+    "nom": "Afterwork",
+    "type": "permanent",
+    "ordre": 4,
+    "createdAt": 1789840000000,
+    "membres": {
+      "Jo": true
+    }
+  },
+  "special": {
+    "nom": "Groupe spécial",
+    "type": "ephemere",
+    "ordre": 5,
+    "createdAt": 1789840000000,
+    "membres": {
+      "Jo": true
+    }
+  }
+}

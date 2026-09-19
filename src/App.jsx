@@ -43,6 +43,10 @@ function formatFullDate(ts){
 }
 
 // ─── Firebase hook ────────────────────────────────────────────────────────────
+async function hashPw(pw){
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
 function useFirebase(path,defaultVal){
   const[data,setData]=useState(defaultVal);
   useEffect(()=>{
@@ -149,9 +153,9 @@ function SplashScreen({onEnter}){
   const t=themeData||DEFAULT_THEME;
   const userList=Object.keys(usersObj||{});
   function openLogin(u){setLoginUser(u);setLoginPw("");setLoginErr("");setPhase("login");}
-  function tryLogin(){
+  async function tryLogin(){
     const stored=(passwords||{})[loginUser];
-    if(!stored||stored===loginPw)onEnter("user",loginUser);
+    if(!stored||stored===await hashPw(loginPw))onEnter("user",loginUser);
     else{setLoginErr("Mot de passe incorrect.");setLoginPw("");}
   }
   function tryAdmin(){
@@ -165,7 +169,7 @@ function SplashScreen({onEnter}){
     if(!newPw){setNewError("Choisis un mot de passe.");return;}
     if(newPw!==newPwC){setNewError("Les mots de passe ne correspondent pas.");return;}
     await set(ref(db,`users/${name}`),{name,createdAt:Date.now()});
-    await set(ref(db,`passwords/${name}`),newPw);
+    await set(ref(db,`passwords/${name}`),await hashPw(newPw));
     await set(ref(db,`profiles/${name}`),{color:newColor,theme:"cosmos"});
     onEnter("user",name);
   }
@@ -811,6 +815,58 @@ function usePresence(u){
 }
 
 // ─── Home Tab ─────────────────────────────────────────────────────────────────
+function MonMotDePasse({currentUser,t}){
+  const passwords=useFirebase("passwords",{});
+  const[ouvert,setOuvert]=useState(false);
+  const[actuel,setActuel]=useState("");
+  const[nouveau,setNouveau]=useState("");
+  const[conf,setConf]=useState("");
+  const[msg,setMsg]=useState(null);
+  const stored=(passwords||{})[currentUser];
+  const champ={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",marginBottom:8};
+  async function valider(){
+    if(stored&&await hashPw(actuel)!==stored){setMsg({ok:false,text:"Mot de passe actuel incorrect."});return;}
+    if(!nouveau){setMsg({ok:false,text:"Choisis un mot de passe."});return;}
+    if(nouveau!==conf){setMsg({ok:false,text:"Les deux saisies ne correspondent pas."});return;}
+    await set(ref(db,`passwords/${currentUser}`),await hashPw(nouveau));
+    setMsg({ok:true,text:"Mot de passe enregistré !"});
+    setActuel("");setNouveau("");setConf("");
+    setTimeout(()=>{setOuvert(false);setMsg(null);},1800);
+  }
+  async function supprimer(){
+    if(stored&&await hashPw(actuel)!==stored){setMsg({ok:false,text:"Mot de passe actuel incorrect."});return;}
+    if(!window.confirm("Supprimer ton mot de passe ? Tu pourras te connecter sans."))return;
+    await remove(ref(db,`passwords/${currentUser}`));
+    setActuel("");setNouveau("");setConf("");
+    setMsg({ok:true,text:"Mot de passe supprimé."});
+    setTimeout(()=>{setOuvert(false);setMsg(null);},1800);
+  }
+  return(
+    <div style={{background:t.card,borderRadius:16,border:`1px solid ${t.border}`,padding:"12px 14px"}}>
+      <button onClick={()=>{setOuvert(o=>!o);setMsg(null);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",cursor:"pointer",padding:0}}>
+        <span style={{fontSize:20}}>🔑</span>
+        <div style={{textAlign:"left",flex:1}}>
+          <div style={{color:t.text,fontWeight:700,fontSize:13}}>Mon mot de passe</div>
+          <div style={{color:stored?t.green:t.muted,fontSize:11}}>{stored?"Défini":"Aucun — connexion libre"}</div>
+        </div>
+        <span style={{color:t.muted,fontSize:16}}>{ouvert?"⌄":"›"}</span>
+      </button>
+      {ouvert&&(
+        <div style={{marginTop:12}}>
+          {stored&&<input type="password" value={actuel} onChange={e=>{setActuel(e.target.value);setMsg(null);}} placeholder="Mot de passe actuel" style={champ}/>}
+          <input type="password" value={nouveau} onChange={e=>{setNouveau(e.target.value);setMsg(null);}} placeholder="Nouveau mot de passe" style={champ}/>
+          <input type="password" value={conf} onChange={e=>{setConf(e.target.value);setMsg(null);}} placeholder="Confirmer" style={champ}/>
+          {msg&&<div style={{padding:"7px 10px",borderRadius:8,marginBottom:8,fontSize:12,fontWeight:600,background:msg.ok?`${t.green}18`:`${t.danger}18`,color:msg.ok?t.green:t.danger}}>{msg.text}</div>}
+          <div style={{display:"flex",gap:7}}>
+            <button onClick={valider} style={{flex:1,padding:"9px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓ Enregistrer</button>
+            {stored&&<button onClick={supprimer} style={{padding:"9px 12px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,cursor:"pointer"}}>🗑</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
   const seenKey=`seen_event_${currentUser}`;
   const hasNewEvent=event&&event.validatedAt&&localStorage.getItem(seenKey)!==(event.validatedAt?.toString()||"");
@@ -840,6 +896,7 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
           <div style={{color:t.muted,fontSize:12}}>Que veux-tu faire ?</div>
         </div>
       </div>
+      <MonMotDePasse currentUser={currentUser} t={t}/>
       {/* Grille 2x2 menus principaux */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {menus.map(m=>(
@@ -998,6 +1055,7 @@ function AdminPanel({onExit}){
     {id:"identity",icon:"✏️",label:"Identité"},
     {id:"theme",icon:"🎨",label:"Couleurs"},
     {id:"users",icon:"👥",label:"Membres"},
+    {id:"groupes",icon:"👪",label:"Groupes"},
     {id:"avail",icon:"📅",label:"Dispos"},
     {id:"event",icon:"🎯",label:"Événement"},
     {id:"sorties",icon:"📖",label:"Sorties"},
@@ -1028,6 +1086,7 @@ function AdminPanel({onExit}){
         {section==="identity" &&<AdminIdentity t={t}/>}
         {section==="theme"    &&<AdminTheme t={t}/>}
         {section==="users"    &&<AdminUsers t={t}/>}
+        {section==="groupes"  &&<AdminGroupes t={t}/>}
         {section==="avail"    &&<AdminAvail t={t}/>}
         {section==="event"    &&<AdminEvent t={t}/>}
         {section==="sorties"  &&<AdminSorties t={t}/>}
@@ -1143,7 +1202,7 @@ function AdminUsers({t}){
   async function applyReset(){
     if(!resetPw){setRM({ok:false,text:"Saisis un mot de passe."});return;}
     if(resetPw!==resetConf){setRM({ok:false,text:"Les mots de passe ne correspondent pas."});return;}
-    await set(ref(db,`passwords/${resetTarget}`),resetPw);
+    await set(ref(db,`passwords/${resetTarget}`),await hashPw(resetPw));
     setRM({ok:true,text:`Mot de passe de ${resetTarget} mis à jour !`});
     setRPw("");setRC("");setTimeout(()=>{setSR(false);setRT(null);setRM(null);},2000);
   }
@@ -1175,6 +1234,88 @@ function AdminUsers({t}){
                     {hasPw&&<button onClick={()=>clearPw(u)} style={{padding:"9px 10px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,cursor:"pointer"}}>🗑</button>}
                     <button onClick={()=>{setSR(false);setRT(null);}} style={{padding:"9px 10px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:12,cursor:"pointer"}}>Annuler</button>
                   </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </ACard>
+    </div>
+  );
+}
+function AdminGroupes({t}){
+  const groupes=useFirebase("groupes",{});
+  const usersObj=useFirebase("users",{});
+  const[newNom,setNewNom]=useState("");
+  const[open,setOpen]=useState(null);
+  const[editNom,setEditNom]=useState("");
+  const userList=Object.keys(usersObj||{});
+  const liste=Object.entries(groupes||{}).sort((a,b)=>(a[1].ordre||99)-(b[1].ordre||99));
+  const slug=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  async function addGroupe(){
+    const nom=newNom.trim();if(!nom)return;
+    const id=slug(nom);if(!id||(groupes||{})[id]){setNewNom("");return;}
+    await set(ref(db,`groupes/${id}`),{nom,type:"permanent",ordre:liste.length+1,createdAt:Date.now()});
+    setNewNom("");
+  }
+  async function delGroupe(id,nom){
+    if(!window.confirm(`Supprimer définitivement le groupe « ${nom} » ?`))return;
+    await remove(ref(db,`groupes/${id}`));if(open===id)setOpen(null);
+  }
+  async function resetGroupe(id,nom){
+    if(!window.confirm(`Réinitialiser « ${nom} » ?\nMembres, dispos, messages et votes de ce groupe seront effacés.`))return;
+    await update(ref(db,`groupes/${id}`),{membres:null,availability:null,messages:null,proposals:null,validatedEvent:null});
+  }
+  async function renameGroupe(id){const nom=editNom.trim();if(!nom)return;await set(ref(db,`groupes/${id}/nom`),nom);}
+  async function toggleMembre(id,u,dedans){
+    if(dedans)await remove(ref(db,`groupes/${id}/membres/${u}`));
+    else await set(ref(db,`groupes/${id}/membres/${u}`),true);
+  }
+  return(
+    <div style={{padding:"8px 0 20px"}}>
+      <ACard t={t}><ALabel t={t}>Créer un groupe</ALabel>
+        <div style={{display:"flex",gap:8}}>
+          <AInput value={newNom} onChange={e=>setNewNom(e.target.value)} t={t} placeholder="Nom du groupe"/>
+          <button onClick={addGroupe} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:18,flexShrink:0}}>+</button>
+        </div>
+      </ACard>
+      <ACard t={t}><ALabel t={t}>{liste.length} groupe{liste.length>1?"s":""}</ALabel>
+        {liste.map(([id,g])=>{
+          const membres=g.membres||{};
+          const nb=Object.keys(membres).length;
+          const ouvert=open===id;
+          return(
+            <div key={id}>
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
+                <div style={{width:34,height:34,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{g.type==="ephemere"?"⏳":"👪"}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:t.text,fontSize:13,fontWeight:600}}>{g.nom}</div>
+                  <div style={{fontSize:10,color:t.muted}}>{nb} membre{nb>1?"s":""}{g.type==="ephemere"?" · éphémère":""}</div>
+                </div>
+                <button onClick={()=>{setOpen(ouvert?null:id);setEditNom(g.nom||"");}} style={{background:"none",border:`1px solid ${t.accent}55`,borderRadius:8,padding:"4px 8px",color:t.accent,fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>{ouvert?"Fermer":"Gérer"}</button>
+                <button onClick={()=>delGroupe(id,g.nom)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
+              </div>
+              {ouvert&&(
+                <div style={{margin:"8px 0 10px",padding:"12px",background:t.bg,borderRadius:12,border:`1px solid ${t.accent}33`}}>
+                  <div style={{color:t.muted,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Nom du groupe</div>
+                  <div style={{display:"flex",gap:7,marginBottom:12}}>
+                    <input value={editNom} onChange={e=>setEditNom(e.target.value)} style={{flex:1,padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none"}}/>
+                    <button onClick={()=>renameGroupe(id)} style={{padding:"9px 12px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓</button>
+                  </div>
+                  <div style={{color:t.muted,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Membres du groupe</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {userList.map(u=>{
+                      const dedans=!!membres[u];
+                      return(
+                        <button key={u} onClick={()=>toggleMembre(id,u,dedans)} style={{padding:"7px 11px",borderRadius:20,background:dedans?t.accent:t.card,border:`1px solid ${dedans?t.accent:t.border}`,color:dedans?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                          {dedans?"✓ ":""}{u}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {g.type==="ephemere"&&(
+                    <button onClick={()=>resetGroupe(id,g.nom)} style={{marginTop:12,width:"100%",padding:"9px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,fontWeight:600,cursor:"pointer"}}>♻️ Réinitialiser ce groupe</button>
+                  )}
                 </div>
               )}
             </div>
