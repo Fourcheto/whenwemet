@@ -1,4 +1,4 @@
-const CACHE_NAME = 'whenwemet-v7';
+const CACHE_NAME = 'whenwemet-v8';
 
 // Le nouveau service worker prend la main immédiatement.
 self.addEventListener('install', () => {
