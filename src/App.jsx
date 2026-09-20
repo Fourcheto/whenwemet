@@ -957,6 +957,39 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
 }
 
 // ─── User App ─────────────────────────────────────────────────────────────────
+function BarreGroupe({liste,gid,onChange,t,vide}){
+  if(!liste.length)return(
+    <div style={{padding:"9px 16px",background:`${t.danger}18`,borderBottom:`1px solid ${t.border}`,color:t.danger,fontSize:12,fontWeight:600,flexShrink:0}}>{vide}</div>
+  );
+  const g=(liste.find(([id])=>id===gid)||[])[1]||{};
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 16px",background:t.card,borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
+      <span style={{fontSize:15}}>{g.type==="ephemere"?"\u23f3":"\ud83d\udc6a"}</span>
+      <select value={gid||""} onChange={e=>onChange(e.target.value)} style={{flex:1,background:"none",border:"none",color:t.text,fontSize:13,fontWeight:700,outline:"none",cursor:"pointer",WebkitAppearance:"none",appearance:"none"}}>
+        {liste.map(([id,gr])=><option key={id} value={id} style={{background:t.card,color:t.text}}>{gr.nom}</option>)}
+      </select>
+            <span style={{color:t.muted,fontSize:11}}>▾</span>
+    </div>
+  );
+}
+
+function useGroupes(membre){
+  const groupes=useFirebase("groupes",{});
+  const liste=Object.entries(groupes||{})
+    .filter(([,g])=>membre===null||(g?.membres||{})[membre])
+    .sort((a,b)=>(a[1].ordre||99)-(b[1].ordre||99));
+  const ids=liste.map(([id])=>id).join(",");
+  const cle=`groupe_${membre||"admin"}`;
+  const[gid,setGid]=useState(()=>localStorage.getItem(cle)||null);
+  useEffect(()=>{
+    const tab=ids?ids.split(","):[];
+    if(!tab.length){setGid(null);return;}
+    if(!gid||!tab.includes(gid))setGid(tab[0]);
+  },[ids,gid,cle]);
+  function choisir(id){setGid(id);localStorage.setItem(cle,id);}
+  return{liste,gid,choisir};
+}
+
 function UserApp({currentUser,onLogout}){
   const[tab,setTab]=useState("home");
   const[,rerender]=useState(0);
@@ -966,6 +999,7 @@ function UserApp({currentUser,onLogout}){
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
   const event=useFirebase("config/validatedEvent",null);
   usePresence(currentUser);
+  const{liste:mesGroupes,gid,choisir:choisirGroupe}=useGroupes(currentUser);
 
   useEffect(()=>{
     const prof=(profiles||{})[currentUser]||{};
@@ -1009,15 +1043,16 @@ function UserApp({currentUser,onLogout}){
             </button>
           </div>
         </div>
+        <BarreGroupe liste={mesGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Tu n'appartiens encore \u00e0 aucun groupe."/>
         {/* Contenu */}
         <div style={{flex:1,overflowY:tab==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",minHeight:0}}>
           {tab==="home"    &&<HomeTab currentUser={currentUser} onNavigate={setTab} onLogout={onLogout} t={t} appName={appName} profiles={profiles} event={event} appSub={appSub}/>}
-          {tab==="calendar"&&<CalendarTab currentUser={currentUser}/>}
-          {tab==="chat"    &&<ChatTab currentUser={currentUser}/>}
-          {tab==="friends" &&<FriendsTab currentUser={currentUser}/>}
-          {tab==="events"  &&<EventsTab currentUser={currentUser}/>}
+          {tab==="calendar"&&<CalendarTab currentUser={currentUser} gid={gid}/>}
+          {tab==="chat"    &&<ChatTab currentUser={currentUser} gid={gid}/>}
+          {tab==="friends" &&<FriendsTab currentUser={currentUser} gid={gid}/>}
+          {tab==="events"  &&<EventsTab currentUser={currentUser} gid={gid}/>}
           {tab==="themes"  &&<ThemesTab currentUser={currentUser}/>}
-          {tab==="vote"    &&<VoteTab currentUser={currentUser} isAdmin={false}/>}
+          {tab==="vote"    &&<VoteTab currentUser={currentUser} isAdmin={false} gid={gid}/>}
         </div>
         {/* Barre de navigation (masquée sur home) */}
         {!isHome&&(
@@ -1045,6 +1080,7 @@ function UserApp({currentUser,onLogout}){
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 function AdminPanel({onExit}){
   const[section,setSection]=useState("home");
+  const{liste:tousGroupes,gid,choisir:choisirGroupe}=useGroupes(null);
   const themeData=useFirebase("config/theme",DEFAULT_THEME);
   const appName=useFirebase("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
@@ -1072,6 +1108,7 @@ function AdminPanel({onExit}){
         </div>
         <button onClick={onExit} style={{padding:"8px 14px",borderRadius:20,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,cursor:"pointer"}}>Quitter</button>
       </div>
+      <BarreGroupe liste={tousGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Aucun groupe cr\u00e9\u00e9."/>
       {/* Menus admin sur 2 rangées de 4 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,padding:"12px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
         {sections.map(s=>(
@@ -1082,16 +1119,16 @@ function AdminPanel({onExit}){
         ))}
       </div>
       <div style={{flex:1,overflowY:"auto"}}>
-        {section==="home"     &&<AdminHome t={t} onNav={setSection}/>}
+        {section==="home"     &&<AdminHome t={t} onNav={setSection} gid={gid}/>}
         {section==="identity" &&<AdminIdentity t={t}/>}
         {section==="theme"    &&<AdminTheme t={t}/>}
         {section==="users"    &&<AdminUsers t={t}/>}
         {section==="groupes"  &&<AdminGroupes t={t}/>}
-        {section==="avail"    &&<AdminAvail t={t}/>}
-        {section==="event"    &&<AdminEvent t={t}/>}
-        {section==="sorties"  &&<AdminSorties t={t}/>}
+        {section==="avail"    &&<AdminAvail t={t} gid={gid}/>}
+        {section==="event"    &&<AdminEvent t={t} gid={gid}/>}
+        {section==="sorties"  &&<AdminSorties t={t} gid={gid}/>}
         {section==="security" &&<AdminSecurity t={t}/>}
-        {section==="votes"    &&<VoteTab currentUser="admin" isAdmin={true}/>}
+        {section==="votes"    &&<VoteTab currentUser="admin" isAdmin={true} gid={gid}/>}
       </div>
     </div>
   );
@@ -1102,11 +1139,12 @@ function ALabel({children,t}){return<div style={{color:t.muted,fontSize:13,fontW
 function SaveBtn({onClick,t,label="Enregistrer",saved}){return<button onClick={onClick} style={{padding:"11px",borderRadius:12,marginTop:10,background:saved?t.green:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",width:"100%",transition:"background 0.3s"}}>{label}</button>;}
 function AInput({value,onChange,t,placeholder=""}){return<input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"13px 16px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:15,outline:"none"}}/>;}
 
-function AdminHome({t,onNav}){
+function AdminHome({t,onNav,gid}){
   const users=useFirebase("users",{});
   const avail=useFirebase("availability",{});
   const msgs=useFirebase("messages",{});
-  const stats=[{label:"Membres",value:Object.keys(users||{}).length,icon:"👥"},{label:"Jours dispo",value:Object.keys(avail||{}).length,icon:"📅"},{label:"Messages",value:Object.keys(msgs||{}).length,icon:"💬"}];
+  const groupes=useFirebase("groupes",{});
+  const stats=[{label:"Membres",value:Object.keys(users||{}).length,icon:"👥"},{label:"Groupes",value:Object.keys(groupes||{}).length,icon:"👪"},{label:"Jours dispo",value:Object.keys(avail||{}).length,icon:"📅"},{label:"Messages",value:Object.keys(msgs||{}).length,icon:"💬"}];
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Aperçu temps réel</ALabel>
