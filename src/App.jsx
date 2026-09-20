@@ -1,6 +1,22 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
 import { ref, onValue, set, update, push, remove, get } from "firebase/database";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+
+const auth=getAuth();
+// Adresse interne derivee du prenom. Jamais affichee, jamais utilisee pour ecrire.
+const emailDe=nom=>`${nom.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,".").replace(/^\.+|\.+$/g,"")}@whenwemet.local`;
+function messageAuth(e){
+  const c=e?.code||"";
+  if(c.includes("invalid-credential")||c.includes("wrong-password"))return "Mot de passe incorrect.";
+  if(c.includes("user-not-found"))return "Aucun compte pour ce membre. Contacte l'administrateur.";
+  if(c.includes("too-many-requests"))return "Trop de tentatives. Réessaie dans quelques minutes.";
+  if(c.includes("weak-password"))return "Mot de passe trop court (6 caractères minimum).";
+  if(c.includes("email-already-in-use"))return "Ce nom est déjà pris.";
+  if(c.includes("network"))return "Pas de connexion réseau.";
+  return "Connexion impossible. Réessaie.";
+}
 
 // ─── Thèmes ───────────────────────────────────────────────────────────────────
 const THEMES = {
@@ -156,9 +172,7 @@ function SplashScreen({onEnter}){
   const[fadeIn,setFadeIn]=useState(false);
   const appName=useFirebase("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
-  const adminPass=useFirebase("config/adminPassword","admin123");
   const usersObj=useFirebase("users",{});
-  const passwords=useFirebase("passwords",{});
   const themeData=useFirebase("config/theme",DEFAULT_THEME);
   const profiles=useFirebase("profiles",{});
   useEffect(()=>{window._theme=themeData;},[themeData]);
@@ -167,13 +181,21 @@ function SplashScreen({onEnter}){
   const userList=Object.keys(usersObj||{});
   function openLogin(u){setLoginUser(u);setLoginPw("");setLoginErr("");setPhase("login");}
   async function tryLogin(){
-    const stored=(passwords||{})[loginUser];
-    if(!stored||stored===await hashPw(loginPw))onEnter("user",loginUser);
-    else{setLoginErr("Mot de passe incorrect.");setLoginPw("");}
+    if(!loginPw){setLoginErr("Saisis ton mot de passe.");return;}
+    try{
+      await signInWithEmailAndPassword(auth,emailDe(loginUser),loginPw);
+      onEnter("user",loginUser);
+    }catch(e){
+      setLoginErr(messageAuth(e));setLoginPw("");
+    }
   }
-  function tryAdmin(){
-    if(adminPw===adminPass)onEnter("admin",null);
-    else{setAdminErr(true);setAdminPw("");setTimeout(()=>setAdminErr(false),1200);}
+  async function tryAdmin(){
+    try{
+      await signInWithEmailAndPassword(auth,emailDe("admin"),adminPw);
+      onEnter("admin",null);
+    }catch{
+      setAdminErr(true);setAdminPw("");setTimeout(()=>setAdminErr(false),1200);
+    }
   }
   async function createProfile(){
     const name=newName.trim();
@@ -181,8 +203,12 @@ function SplashScreen({onEnter}){
     if(userList.includes(name)){setNewError("Ce nom existe déjà — connecte-toi !");return;}
     if(!newPw){setNewError("Choisis un mot de passe.");return;}
     if(newPw!==newPwC){setNewError("Les mots de passe ne correspondent pas.");return;}
+    if(newPw.length<6){setNewError("Mot de passe trop court (6 caractères minimum).");return;}
+    let cred;
+    try{ cred=await createUserWithEmailAndPassword(auth,emailDe(name),newPw); }
+    catch(e){ setNewError(messageAuth(e)); return; }
+    await set(ref(db,`uids/${cred.user.uid}`),name);
     await set(ref(db,`users/${name}`),{name,createdAt:Date.now()});
-    await set(ref(db,`passwords/${name}`),await hashPw(newPw));
     await set(ref(db,`profiles/${name}`),{color:newColor,theme:"cosmos"});
     onEnter("user",name);
   }
@@ -719,7 +745,6 @@ function VoteTab({currentUser,isAdmin=false,gid}){
   const proposals=useFirebase(chemin(gid,"proposals"),{});
   const usersObj=useFirebase("users",{});
   const profiles=useFirebase("profiles",{});
-  const adminPass=useFirebase("config/adminPassword","admin123");
 
 
   const CATEGORIES=["🍽 Restaurant","🍺 Bar","🌳 Pique-nique","🎭 Autre"];
@@ -857,30 +882,26 @@ function usePresence(u){
 
 // ─── Home Tab ─────────────────────────────────────────────────────────────────
 function MonMotDePasse({currentUser,t}){
-  const passwords=useFirebase("passwords",{});
   const[ouvert,setOuvert]=useState(false);
   const[actuel,setActuel]=useState("");
   const[nouveau,setNouveau]=useState("");
   const[conf,setConf]=useState("");
   const[msg,setMsg]=useState(null);
-  const stored=(passwords||{})[currentUser];
   const champ={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",marginBottom:8};
   async function valider(){
-    if(stored&&await hashPw(actuel)!==stored){setMsg({ok:false,text:"Mot de passe actuel incorrect."});return;}
-    if(!nouveau){setMsg({ok:false,text:"Choisis un mot de passe."});return;}
+    if(nouveau.length<6){setMsg({ok:false,text:"Nouveau mot de passe : 6 caractères minimum."});return;}
     if(nouveau!==conf){setMsg({ok:false,text:"Les deux saisies ne correspondent pas."});return;}
-    await set(ref(db,`passwords/${currentUser}`),await hashPw(nouveau));
-    setMsg({ok:true,text:"Mot de passe enregistré !"});
-    setActuel("");setNouveau("");setConf("");
-    setTimeout(()=>{setOuvert(false);setMsg(null);},1800);
-  }
-  async function supprimer(){
-    if(stored&&await hashPw(actuel)!==stored){setMsg({ok:false,text:"Mot de passe actuel incorrect."});return;}
-    if(!window.confirm("Supprimer ton mot de passe ? Tu pourras te connecter sans."))return;
-    await remove(ref(db,`passwords/${currentUser}`));
-    setActuel("");setNouveau("");setConf("");
-    setMsg({ok:true,text:"Mot de passe supprimé."});
-    setTimeout(()=>{setOuvert(false);setMsg(null);},1800);
+    const u=auth.currentUser;
+    if(!u){setMsg({ok:false,text:"Session expirée. Reconnecte-toi."});return;}
+    try{
+      await reauthenticateWithCredential(u,EmailAuthProvider.credential(emailDe(currentUser),actuel));
+      await updatePassword(u,nouveau);
+      setMsg({ok:true,text:"Mot de passe modifié !"});
+      setActuel("");setNouveau("");setConf("");
+      setTimeout(()=>{setOuvert(false);setMsg(null);},1800);
+    }catch(e){
+      setMsg({ok:false,text:messageAuth(e)});
+    }
   }
   return(
     <div style={{background:t.card,borderRadius:16,border:`1px solid ${t.border}`,padding:"12px 14px"}}>
@@ -888,26 +909,22 @@ function MonMotDePasse({currentUser,t}){
         <span style={{fontSize:20}}>🔑</span>
         <div style={{textAlign:"left",flex:1}}>
           <div style={{color:t.text,fontWeight:700,fontSize:13}}>Mon mot de passe</div>
-          <div style={{color:stored?t.green:t.muted,fontSize:11}}>{stored?"Défini":"Aucun — connexion libre"}</div>
+          <div style={{color:t.muted,fontSize:11}}>Le modifier</div>
         </div>
         <span style={{color:t.muted,fontSize:16}}>{ouvert?"⌄":"›"}</span>
       </button>
       {ouvert&&(
         <div style={{marginTop:12}}>
-          {stored&&<input type="password" value={actuel} onChange={e=>{setActuel(e.target.value);setMsg(null);}} placeholder="Mot de passe actuel" style={champ}/>}
+          <input type="password" value={actuel} onChange={e=>{setActuel(e.target.value);setMsg(null);}} placeholder="Mot de passe actuel" style={champ}/>
           <input type="password" value={nouveau} onChange={e=>{setNouveau(e.target.value);setMsg(null);}} placeholder="Nouveau mot de passe" style={champ}/>
           <input type="password" value={conf} onChange={e=>{setConf(e.target.value);setMsg(null);}} placeholder="Confirmer" style={champ}/>
           {msg&&<div style={{padding:"7px 10px",borderRadius:8,marginBottom:8,fontSize:12,fontWeight:600,background:msg.ok?`${t.green}18`:`${t.danger}18`,color:msg.ok?t.green:t.danger}}>{msg.text}</div>}
-          <div style={{display:"flex",gap:7}}>
-            <button onClick={valider} style={{flex:1,padding:"9px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓ Enregistrer</button>
-            {stored&&<button onClick={supprimer} style={{padding:"9px 12px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,cursor:"pointer"}}>🗑</button>}
-          </div>
+          <button onClick={valider} style={{width:"100%",padding:"9px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓ Enregistrer</button>
         </div>
       )}
     </div>
   );
 }
-
 function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
   const seenKey=`seen_event_${currentUser}`;
   const hasNewEvent=event&&event.validatedAt&&localStorage.getItem(seenKey)!==(event.validatedAt?.toString()||"");
@@ -1262,7 +1279,6 @@ function AdminTheme({t}){
 
 function AdminUsers({t}){
   const usersObj=useFirebase("users",{});
-  const passwords=useFirebase("passwords",{});
   const groupes=useFirebase("groupes",{});
   const[newName,setNewName]=useState("");
   const[resetTarget,setRT]=useState(null);
@@ -1271,9 +1287,14 @@ function AdminUsers({t}){
   const[resetMsg,setRM]=useState(null);
   const[showReset,setSR]=useState(false);
   const userList=Object.keys(usersObj||{});
-  async function addUser(){const n=newName.trim();if(!n||userList.includes(n))return;await set(ref(db,`users/${n}`),{name:n,createdAt:Date.now()});setNewName("");}
+  async function addUser(){
+    const n=newName.trim();if(!n||userList.includes(n))return;
+    await set(ref(db,`users/${n}`),{name:n,createdAt:Date.now()});
+    setNewName("");
+    window.alert(`${n} est ajouté à la liste, mais il n'a pas encore de compte.\n\nAjoute-le dans comptes.json puis lance : node creer-comptes.mjs`);
+  }
   async function removeUser(u){
-    await remove(ref(db,`users/${u}`));await remove(ref(db,`passwords/${u}`));await remove(ref(db,`profiles/${u}`));
+    await remove(ref(db,`users/${u}`));await remove(ref(db,`profiles/${u}`));
     await remove(ref(db,`occupation/${u}`));
     for(const[g,gr]of Object.entries(groupes||{})){
       await remove(ref(db,`groupes/${g}/membres/${u}`));
@@ -1285,11 +1306,7 @@ function AdminUsers({t}){
     if(resetTarget===u){setRT(null);setSR(false);}
   }
   async function applyReset(){
-    if(!resetPw){setRM({ok:false,text:"Saisis un mot de passe."});return;}
-    if(resetPw!==resetConf){setRM({ok:false,text:"Les mots de passe ne correspondent pas."});return;}
-    await set(ref(db,`passwords/${resetTarget}`),await hashPw(resetPw));
-    setRM({ok:true,text:`Mot de passe de ${resetTarget} mis à jour !`});
-    setRPw("");setRC("");setTimeout(()=>{setSR(false);setRT(null);setRM(null);},2000);
+    setRM({ok:false,text:"Impossible ici : passe par la console Firebase ou le script creer-comptes.mjs."});
   }
   async function clearPw(u){await remove(ref(db,`passwords/${u}`));setRM({ok:true,text:"Mot de passe supprimé."});setTimeout(()=>setRM(null),2000);}
   return(
@@ -1656,17 +1673,21 @@ function AdminSorties({t,gid}){
 }
 
 function AdminSecurity({t}){
-  const adminPass=useFirebase("config/adminPassword","admin123");
   const[cur,setCur]=useState("");
   const[np,setNp]=useState("");
   const[conf,setConf]=useState("");
   const[msg,setMsg]=useState(null);
   async function save(){
-    if(cur!==adminPass){setMsg({ok:false,text:"Mot de passe actuel incorrect"});return;}
-    if(!np){setMsg({ok:false,text:"Le nouveau mot de passe est vide"});return;}
+    if(np.length<6){setMsg({ok:false,text:"Nouveau mot de passe : 6 caractères minimum"});return;}
     if(np!==conf){setMsg({ok:false,text:"Les mots de passe ne correspondent pas"});return;}
-    await set(ref(db,"config/adminPassword"),np);setCur("");setNp("");setConf("");
-    setMsg({ok:true,text:"Mot de passe modifié !"});setTimeout(()=>setMsg(null),3000);
+    const u=auth.currentUser;
+    if(!u){setMsg({ok:false,text:"Session expirée. Reconnecte-toi."});return;}
+    try{
+      await reauthenticateWithCredential(u,EmailAuthProvider.credential(emailDe("admin"),cur));
+      await updatePassword(u,np);
+      setCur("");setNp("");setConf("");
+      setMsg({ok:true,text:"Mot de passe modifié !"});setTimeout(()=>setMsg(null),3000);
+    }catch(e){ setMsg({ok:false,text:messageAuth(e)}); }
   }
   const pwRow=(label,val,setFn)=><div style={{marginBottom:10}}><div style={{color:t.muted,fontSize:12,marginBottom:5}}>{label}</div><input type="password" value={val} onChange={e=>setFn(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:11,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none"}}/></div>;
   return(
@@ -1686,11 +1707,12 @@ function AdminSecurity({t}){
 export default function App(){
   const[screen,setScreen]=useState("splash");
   const[currentUser,setCurrentUser]=useState(null);
+  function handleQuit(){ signOut(auth).catch(()=>{}); setScreen("splash"); setCurrentUser(null); }
   function handleEnter(mode,user){
     if(mode==="admin"){setScreen("admin");setCurrentUser(null);}
     else{setCurrentUser(user);setScreen("user");}
   }
   if(screen==="splash")return<SplashScreen onEnter={handleEnter}/>;
-  if(screen==="admin")return<AdminPanel onExit={()=>setScreen("splash")}/>;
-  return<UserApp currentUser={currentUser} onLogout={()=>setScreen("splash")}/>;
+  if(screen==="admin")return<AdminPanel onExit={handleQuit}/>;
+  return<UserApp currentUser={currentUser} onLogout={handleQuit}/>;
 }
