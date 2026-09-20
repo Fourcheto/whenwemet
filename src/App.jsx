@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
-import { ref, onValue, set, update, push, remove } from "firebase/database";
+import { ref, onValue, set, update, push, remove, get } from "firebase/database";
 
 // ─── Thèmes ───────────────────────────────────────────────────────────────────
 const THEMES = {
@@ -48,6 +48,16 @@ async function hashPw(pw){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 const chemin=(gid,sous)=>gid?`groupes/${gid}/${sous}`:null;
+const creneauCle=(date,slot)=>`${date}_${slot}`;
+// Cases occupees par le membre sur ce creneau, hors du groupe courant.
+function ailleurs(occupation,date,slot,gidCourant){
+  const cases=(occupation||{})[creneauCle(date,slot)]||{};
+  return Object.entries(cases).filter(([g])=>g!==gidCourant).map(([g,v])=>({gid:g,...v}));
+}
+async function marquerOccupation(membre,date,slot,gid,valeur){
+  const r=ref(db,`occupation/${membre}/${creneauCle(date,slot)}/${gid}`);
+  if(valeur===null)await remove(r);else await set(r,valeur);
+}
 
 function useFirebase(path,defaultVal){
   const[data,setData]=useState(defaultVal);
@@ -277,6 +287,8 @@ function CalendarTab({currentUser,gid}){
   const usersObj=useFirebase("users",{});
   const avail=useFirebase(chemin(gid,"availability"),{});
   const event=useFirebase(chemin(gid,"validatedEvent"),null);
+  const occupation=useFirebase(currentUser?`occupation/${currentUser}`:null,{});
+  const groupes=useFirebase("groupes",{});
   const users=Object.keys(usersObj||{});
   const days=getDays(year,month);
   const first=getFirst(year,month);
@@ -294,8 +306,19 @@ function CalendarTab({currentUser,gid}){
     const{midi,soir}=getSlots(ds);
     const arr=slot==="midi"?midi:soir;
     const idx=arr.indexOf(currentUser);
-    const updated=idx===-1?[...arr,currentUser]:arr.filter(x=>x!==currentUser);
+    const jeMAjoute=idx===-1;
+    if(jeMAjoute){
+      const conflits=ailleurs(occupation,ds,slot,gid).filter(c=>c.statut==="confirme");
+      if(conflits.length){
+        const c=conflits[0];
+        const nomG=((groupes||{})[c.gid]||{}).nom||c.gid;
+        const quoi=c.titre?` pour « ${c.titre} »`:"";
+        if(!window.confirm(`Tu es déjà engagé avec « ${nomG} »${quoi} sur ce créneau.\n\nTe déclarer disponible ici quand même ?`))return;
+      }
+    }
+    const updated=jeMAjoute?[...arr,currentUser]:arr.filter(x=>x!==currentUser);
     await set(ref(db,`groupes/${gid}/availability/${ds}/${slot}`),updated);
+    await marquerOccupation(currentUser,ds,slot,gid,jeMAjoute?{statut:"propose"}:null);
   }
   let bestDate=null,bestCount=0;
   for(let d=1;d<=days;d++){const ds=fmtDate(year,month,d);if(ds<todayStr)continue;const c=countTotal(ds);if(c>bestCount){bestCount=c;bestDate=ds;}}
@@ -356,6 +379,7 @@ function CalendarTab({currentUser,gid}){
               {count>0&&!past&&<span style={{fontSize:8,color:isPerfect?t.green:t.accentLight,fontWeight:700}}>{count}/{users.length}</span>}
               {isMe&&!past&&<span style={{position:"absolute",top:2,right:2,width:5,height:5,borderRadius:"50%",background:t.green}}/>}
               {midi.length>0&&soir.length>0&&!past&&<span style={{fontSize:7,position:"absolute",bottom:1}}>🌓</span>}
+              {!past&&[...ailleurs(occupation,ds,"midi",gid),...ailleurs(occupation,ds,"soir",gid)].some(c=>c.statut==="confirme")&&<span style={{position:"absolute",top:2,left:2,fontSize:12}}>🔒</span>}
             </button>
           );
         })}
@@ -382,6 +406,18 @@ function CalendarTab({currentUser,gid}){
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {people.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:p===currentUser?`${t.green}22`:`${t.accent}22`,color:p===currentUser?t.green:t.accentLight,fontSize:11,fontWeight:600}}>{p}</span>)}
                 </div>
+              </div>
+            );
+          })}
+          {["midi","soir"].map(slot=>{
+            const conflits=ailleurs(occupation,selected,slot,gid).filter(c=>c.statut==="confirme");
+            if(!conflits.length)return null;
+            const c=conflits[0];
+            const nomG=((groupes||{})[c.gid]||{}).nom||c.gid;
+            return(
+              <div key={`occ-${slot}`} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",marginBottom:6,background:`${t.danger}15`,border:`1px solid ${t.danger}44`,borderRadius:10}}>
+                <span style={{fontSize:13}}>🔒</span>
+                <span style={{color:t.danger,fontSize:11,fontWeight:600}}>{slot==="midi"?"Midi":"Soir"} : engagé avec « {nomG} »{c.titre?` pour « ${c.titre} »`:""}</span>
               </div>
             );
           })}
@@ -1238,6 +1274,7 @@ function AdminUsers({t}){
   async function addUser(){const n=newName.trim();if(!n||userList.includes(n))return;await set(ref(db,`users/${n}`),{name:n,createdAt:Date.now()});setNewName("");}
   async function removeUser(u){
     await remove(ref(db,`users/${u}`));await remove(ref(db,`passwords/${u}`));await remove(ref(db,`profiles/${u}`));
+    await remove(ref(db,`occupation/${u}`));
     for(const[g,gr]of Object.entries(groupes||{})){
       await remove(ref(db,`groupes/${g}/membres/${u}`));
       for(const[date,day]of Object.entries(gr?.availability||{})){
@@ -1312,7 +1349,11 @@ function AdminGroupes({t}){
   }
   async function resetGroupe(id,nom){
     if(!window.confirm(`Réinitialiser « ${nom} » ?\nMembres, dispos, messages et votes de ce groupe seront effacés.`))return;
-    await update(ref(db,`groupes/${id}`),{membres:null,availability:null,messages:null,proposals:null,validatedEvent:null});
+    for(const u of Object.keys((groupes||{})[id]?.membres||{})){
+      const occ=(await get(ref(db,`occupation/${u}`))).val()||{};
+      for(const cr of Object.keys(occ))if(occ[cr]&&occ[cr][id])await remove(ref(db,`occupation/${u}/${cr}/${id}`));
+    }
+    await update(ref(db,`groupes/${id}`),{membres:null,availability:null,messages:null,proposals:null,validatedEvent:null,sorties:null});
   }
   async function renameGroupe(id){const nom=editNom.trim();if(!nom)return;await set(ref(db,`groupes/${id}/nom`),nom);}
   async function toggleMembre(id,u,dedans){
@@ -1386,8 +1427,21 @@ function AdminAvail({t,gid}){
   const days=getDays(year,month);
   const first=getFirst(year,month);
   function getSlots(ds){const a=(avail||{})[ds]||{};return{midi:Array.isArray(a.midi)?a.midi:[],soir:Array.isArray(a.soir)?a.soir:[]};}
-  async function toggleUser(ds,slot,user){if(!gid)return;const{midi,soir}=getSlots(ds);const arr=slot==="midi"?midi:soir;const updated=arr.includes(user)?arr.filter(x=>x!==user):[...arr,user];await set(ref(db,`groupes/${gid}/availability/${ds}/${slot}`),updated);}
-  async function clearDay(ds){if(!gid)return;await set(ref(db,`groupes/${gid}/availability/${ds}`),{midi:[],soir:[]});}
+  async function toggleUser(ds,slot,user){
+    if(!gid)return;
+    const{midi,soir}=getSlots(ds);const arr=slot==="midi"?midi:soir;
+    const retire=arr.includes(user);
+    const updated=retire?arr.filter(x=>x!==user):[...arr,user];
+    await set(ref(db,`groupes/${gid}/availability/${ds}/${slot}`),updated);
+    await marquerOccupation(user,ds,slot,gid,retire?null:{statut:"propose"});
+  }
+  async function clearDay(ds){
+    if(!gid)return;
+    const{midi,soir}=getSlots(ds);
+    await set(ref(db,`groupes/${gid}/availability/${ds}`),{midi:[],soir:[]});
+    for(const u of midi)await marquerOccupation(u,ds,"midi",gid,null);
+    for(const u of soir)await marquerOccupation(u,ds,"soir",gid,null);
+  }
   function prevM(){if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);setSel(null);}
   function nextM(){if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1);setSel(null);}
   return(
@@ -1464,9 +1518,21 @@ function AdminEvent({t,gid}){
     const participants=[...new Set([...midi,...soir])];
     if(!gid)return;
     await set(ref(db,`groupes/${gid}/validatedEvent`),{date:selDate,title:title.trim(),slot:selSlot,message:message.trim(),address:address.trim(),mapsUrl:mapsUrl.trim(),participants,validatedAt:Date.now()});
+    const creneaux=selSlot==="les-deux"?["midi","soir"]:[selSlot];
+    for(const p of participants)for(const cr of creneaux)
+      await marquerOccupation(p,selDate,cr,gid,{statut:"confirme",titre:title.trim()});
     setSaved(true);setTimeout(()=>setSaved(false),2000);
   }
-  async function clearEvent(){if(!gid)return;await remove(ref(db,`groupes/${gid}/validatedEvent`));}
+  async function clearEvent(){
+    if(!gid)return;
+    const ev=event;
+    await remove(ref(db,`groupes/${gid}/validatedEvent`));
+    if(ev&&ev.date){
+      const creneaux=ev.slot==="les-deux"?["midi","soir"]:[ev.slot];
+      for(const p of(ev.participants||[]))for(const cr of creneaux)
+        await marquerOccupation(p,ev.date,cr,gid,{statut:"propose"});
+    }
+  }
   const textareaStyle={width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80};
   return(
     <div style={{padding:"8px 0 20px"}}>
