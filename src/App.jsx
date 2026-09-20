@@ -1306,10 +1306,6 @@ function AdminUsers({t}){
     }
     if(resetTarget===u){setRT(null);setSR(false);}
   }
-  async function applyReset(){
-    setRM({ok:false,text:"Impossible ici : passe par la console Firebase ou le script creer-comptes.mjs."});
-  }
-  async function clearPw(u){await remove(ref(db,`passwords/${u}`));setRM({ok:true,text:"Mot de passe supprimé."});setTimeout(()=>setRM(null),2000);}
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Ajouter un membre</ALabel>
@@ -1317,28 +1313,13 @@ function AdminUsers({t}){
       </ACard>
       <ACard t={t}><ALabel t={t}>{userList.length} membre{userList.length>1?"s":""}</ALabel>
         {userList.map(u=>{
-          const hasPw=!!(passwords||{})[u];
           return(
             <div key={u}>
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
                 <div style={{width:34,height:34,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",color:t.text,fontWeight:700,fontSize:14,flexShrink:0}}>{u[0]}</div>
-                <div style={{flex:1,minWidth:0}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{u}</div><div style={{fontSize:10,color:hasPw?t.green:t.muted}}>{hasPw?"🔒 Mot de passe défini":"🔓 Sans mot de passe"}</div></div>
-                <button onClick={()=>resetTarget===u&&showReset?setSR(false):(setRT(u),setRPw(""),setRC(""),setRM(null),setSR(true))} style={{background:"none",border:`1px solid ${t.accent}55`,borderRadius:8,padding:"4px 8px",color:t.accent,fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>🔑</button>
+                <div style={{flex:1,minWidth:0}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{u}</div><div style={{fontSize:10,color:t.muted}}>Compte géré par Firebase Authentication</div></div>
                 <button onClick={()=>removeUser(u)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
               </div>
-              {showReset&&resetTarget===u&&(
-                <div style={{margin:"8px 0 10px",padding:"12px",background:t.bg,borderRadius:12,border:`1px solid ${t.accent}33`}}>
-                  <div style={{color:t.text,fontWeight:600,fontSize:12,marginBottom:8}}>Nouveau mot de passe pour <span style={{color:t.accent}}>{u}</span></div>
-                  <input type="password" value={resetPw} onChange={e=>setRPw(e.target.value)} placeholder="Nouveau mot de passe" style={{width:"100%",padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",marginBottom:8}}/>
-                  <input type="password" value={resetConf} onChange={e=>setRC(e.target.value)} placeholder="Confirmer" style={{width:"100%",padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",marginBottom:8}}/>
-                  {resetMsg&&<div style={{padding:"7px 10px",borderRadius:8,marginBottom:8,fontSize:12,fontWeight:600,background:resetMsg.ok?`${t.green}18`:`${t.danger}18`,color:resetMsg.ok?t.green:t.danger}}>{resetMsg.text}</div>}
-                  <div style={{display:"flex",gap:7}}>
-                    <button onClick={applyReset} style={{flex:1,padding:"9px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓ Appliquer</button>
-                    {hasPw&&<button onClick={()=>clearPw(u)} style={{padding:"9px 10px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,cursor:"pointer"}}>🗑</button>}
-                    <button onClick={()=>{setSR(false);setRT(null);}} style={{padding:"9px 10px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:12,cursor:"pointer"}}>Annuler</button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
