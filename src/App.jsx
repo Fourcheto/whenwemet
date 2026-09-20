@@ -247,9 +247,6 @@ function SplashScreen({onEnter}){
                 );
               })}
             </div>
-            <button onClick={()=>{setPhase("new-user");setNewName("");setNewPw("");setNewPwC("");setNewError("");setNewColor(AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)]);}} style={{padding:"13px 16px",borderRadius:14,background:`linear-gradient(135deg,${t.accent}18,${t.accent}08)`,border:`1px solid ${t.accent}55`,color:t.accent,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-              <span style={{fontSize:18}}>✨</span> Créer mon profil
-            </button>
             <button onClick={()=>{setPhase("admin-pin");setAdminPw("");}} style={{padding:"11px",borderRadius:14,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:13,cursor:"pointer"}}>
               ⚙️  Accès administrateur
             </button>
