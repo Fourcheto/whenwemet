@@ -47,9 +47,12 @@ async function hashPw(pw){
   const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pw));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
+const chemin=(gid,sous)=>gid?`groupes/${gid}/${sous}`:null;
+
 function useFirebase(path,defaultVal){
   const[data,setData]=useState(defaultVal);
   useEffect(()=>{
+    if(!path){setData(defaultVal);return;}
     const r=ref(db,path);
     const unsub=onValue(r,snap=>{const val=snap.val();setData(val!==null&&val!==undefined?val:defaultVal);});
     return()=>unsub();
@@ -264,7 +267,7 @@ function SplashScreen({onEnter}){
 }
 
 // ─── Calendar Tab ─────────────────────────────────────────────────────────────
-function CalendarTab({currentUser}){
+function CalendarTab({currentUser,gid}){
   const now=new Date();
   const todayStr=fmtDate(now.getFullYear(),now.getMonth(),now.getDate());
   const[year,setYear]=useState(now.getFullYear());
@@ -272,8 +275,8 @@ function CalendarTab({currentUser}){
   const[selected,setSel]=useState(null);
   const t=C();
   const usersObj=useFirebase("users",{});
-  const avail=useFirebase("availability",{});
-  const event=useFirebase("config/validatedEvent",null);
+  const avail=useFirebase(chemin(gid,"availability"),{});
+  const event=useFirebase(chemin(gid,"validatedEvent"),null);
   const users=Object.keys(usersObj||{});
   const days=getDays(year,month);
   const first=getFirst(year,month);
@@ -287,11 +290,12 @@ function CalendarTab({currentUser}){
   function getSlots(ds){const a=(avail||{})[ds]||{};return{midi:Array.isArray(a.midi)?a.midi:[],soir:Array.isArray(a.soir)?a.soir:[]};}
   function countTotal(ds){const{midi,soir}=getSlots(ds);return new Set([...midi,...soir]).size;}
   async function toggleSlot(ds,slot){
+    if(!gid)return;
     const{midi,soir}=getSlots(ds);
     const arr=slot==="midi"?midi:soir;
     const idx=arr.indexOf(currentUser);
     const updated=idx===-1?[...arr,currentUser]:arr.filter(x=>x!==currentUser);
-    await set(ref(db,`availability/${ds}/${slot}`),updated);
+    await set(ref(db,`groupes/${gid}/availability/${ds}/${slot}`),updated);
   }
   let bestDate=null,bestCount=0;
   for(let d=1;d<=days;d++){const ds=fmtDate(year,month,d);if(ds<todayStr)continue;const c=countTotal(ds);if(c>bestCount){bestCount=c;bestDate=ds;}}
@@ -389,29 +393,30 @@ function CalendarTab({currentUser}){
 }
 
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
-function ChatTab({currentUser}){
+function ChatTab({currentUser,gid}){
   const[input,setInput]=useState("");
   const bottomRef=useRef(null);
   const t=C();
-  const msgsObj=useFirebase("messages",{});
+  const msgsObj=useFirebase(chemin(gid,"messages"),{});
   const profiles=useFirebase("profiles",{});
   const msgs=Object.entries(msgsObj||{}).map(([id,m])=>({id,...m})).sort((a,b)=>a.ts-b.ts);
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]);
   async function send(){
-    const text=input.trim();if(!text)return;
+    const text=input.trim();if(!text||!gid)return;
     const now=new Date();
     const time=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-    await push(ref(db,"messages"),{user:currentUser,text,time,ts:Date.now()});
+    await push(ref(db,`groupes/${gid}/messages`),{user:currentUser,text,time,ts:Date.now()});
     setInput("");
   }
   async function addReaction(msgId,emoji){
+    if(!gid)return;
     const msg=msgsObj[msgId];
     const reactions=msg.reactions||{};
     const users=reactions[emoji]||[];
     const idx=users.indexOf(currentUser);
     const updated=idx===-1?[...users,currentUser]:users.filter(x=>x!==currentUser);
-    if(!updated.length){const newR={...reactions};delete newR[emoji];await update(ref(db,`messages/${msgId}`),{reactions:newR});}
-    else await update(ref(db,`messages/${msgId}`),{reactions:{...reactions,[emoji]:updated}});
+    if(!updated.length){const newR={...reactions};delete newR[emoji];await update(ref(db,`groupes/${gid}/messages/${msgId}`),{reactions:newR});}
+    else await update(ref(db,`groupes/${gid}/messages/${msgId}`),{reactions:{...reactions,[emoji]:updated}});
   }
   function needsSep(idx){
     if(idx===0)return true;
@@ -463,13 +468,13 @@ function ChatTab({currentUser}){
 }
 
 // ─── Friends Tab ──────────────────────────────────────────────────────────────
-function FriendsTab({currentUser}){
+function FriendsTab({currentUser,gid}){
   const t=C();
   const usersObj=useFirebase("users",{});
-  const avail=useFirebase("availability",{});
+  const avail=useFirebase(chemin(gid,"availability"),{});
   const profiles=useFirebase("profiles",{});
   const presence=useFirebase("presence",{});
-  const sorties=useFirebase("sorties",{});
+  const sorties=useFirebase(chemin(gid,"sorties"),{});
   const users=Object.keys(usersObj||{});
   const counts={};
   users.forEach(u=>{counts[u]={midi:0,soir:0};});
@@ -533,11 +538,11 @@ function FriendsTab({currentUser}){
 }
 
 // ─── Events Tab ───────────────────────────────────────────────────────────────
-function EventsTab({currentUser}){
+function EventsTab({currentUser,gid}){
   const t=C();
   const[subTab,setSubTab]=useState("prochain");
-  const event=useFirebase("config/validatedEvent",null);
-  const sorties=useFirebase("sorties",{});
+  const event=useFirebase(chemin(gid,"validatedEvent"),null);
+  const sorties=useFirebase(chemin(gid,"sorties"),{});
   const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
   useEffect(()=>{
     if(currentUser&&event)localStorage.setItem(`seen_event_${currentUser}`,(event.validatedAt?.toString()||""));
@@ -669,13 +674,13 @@ function ThemesTab({currentUser}){
 
 
 // ─── Vote Tab ─────────────────────────────────────────────────────────────────
-function VoteTab({currentUser,isAdmin=false}){
+function VoteTab({currentUser,isAdmin=false,gid}){
   const t=C();
   const[showForm,setShowForm]=useState(false);
   const[category,setCategory]=useState("");
   const[description,setDescription]=useState("");
   const[saving,setSaving]=useState(false);
-  const proposals=useFirebase("proposals",{});
+  const proposals=useFirebase(chemin(gid,"proposals"),{});
   const usersObj=useFirebase("users",{});
   const profiles=useFirebase("profiles",{});
   const adminPass=useFirebase("config/adminPassword","admin123");
@@ -691,7 +696,7 @@ function VoteTab({currentUser,isAdmin=false}){
   async function addProposal(){
     if(!category||!description.trim())return;
     setSaving(true);
-    await push(ref(db,"proposals"),{
+    await push(ref(db,`groupes/${gid}/proposals`),{
       category,description:description.trim(),
       author:currentUser,createdAt:Date.now(),votes:{}
     });
@@ -702,13 +707,13 @@ function VoteTab({currentUser,isAdmin=false}){
     const votes=prop?.votes||{};
     if(votes[currentUser]===val){
       const newV={...votes};delete newV[currentUser];
-      await set(ref(db,`proposals/${propId}/votes`),newV);
+      await set(ref(db,`groupes/${gid}/proposals/${propId}/votes`),newV);
     } else {
-      await update(ref(db,`proposals/${propId}/votes`),{[currentUser]:val});
+      await update(ref(db,`groupes/${gid}/proposals/${propId}/votes`),{[currentUser]:val});
     }
   }
   async function deleteProposal(propId){
-    await remove(ref(db,`proposals/${propId}`));
+    await remove(ref(db,`groupes/${gid}/proposals/${propId}`));
   }
 
   return(
@@ -968,7 +973,7 @@ function BarreGroupe({liste,gid,onChange,t,vide}){
       <select value={gid||""} onChange={e=>onChange(e.target.value)} style={{flex:1,background:"none",border:"none",color:t.text,fontSize:13,fontWeight:700,outline:"none",cursor:"pointer",WebkitAppearance:"none",appearance:"none"}}>
         {liste.map(([id,gr])=><option key={id} value={id} style={{background:t.card,color:t.text}}>{gr.nom}</option>)}
       </select>
-            <span style={{color:t.muted,fontSize:11}}>▾</span>
+      <span style={{color:t.muted,fontSize:11}}>▾</span>
     </div>
   );
 }
@@ -997,9 +1002,9 @@ function UserApp({currentUser,onLogout}){
   const profiles=useFirebase("profiles",{});
   const appName=useFirebase("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
-  const event=useFirebase("config/validatedEvent",null);
   usePresence(currentUser);
   const{liste:mesGroupes,gid,choisir:choisirGroupe}=useGroupes(currentUser);
+  const event=useFirebase(chemin(gid,"validatedEvent"),null);
 
   useEffect(()=>{
     const prof=(profiles||{})[currentUser]||{};
@@ -1043,7 +1048,7 @@ function UserApp({currentUser,onLogout}){
             </button>
           </div>
         </div>
-        <BarreGroupe liste={mesGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Tu n'appartiens encore \u00e0 aucun groupe."/>
+        <BarreGroupe liste={mesGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Tu n'appartiens encore à aucun groupe."/>
         {/* Contenu */}
         <div style={{flex:1,overflowY:tab==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",minHeight:0}}>
           {tab==="home"    &&<HomeTab currentUser={currentUser} onNavigate={setTab} onLogout={onLogout} t={t} appName={appName} profiles={profiles} event={event} appSub={appSub}/>}
@@ -1108,7 +1113,7 @@ function AdminPanel({onExit}){
         </div>
         <button onClick={onExit} style={{padding:"8px 14px",borderRadius:20,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,cursor:"pointer"}}>Quitter</button>
       </div>
-      <BarreGroupe liste={tousGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Aucun groupe cr\u00e9\u00e9."/>
+      <BarreGroupe liste={tousGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Aucun groupe créé."/>
       {/* Menus admin sur 2 rangées de 4 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,padding:"12px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
         {sections.map(s=>(
@@ -1141,8 +1146,8 @@ function AInput({value,onChange,t,placeholder=""}){return<input value={value} on
 
 function AdminHome({t,onNav,gid}){
   const users=useFirebase("users",{});
-  const avail=useFirebase("availability",{});
-  const msgs=useFirebase("messages",{});
+  const avail=useFirebase(chemin(gid,"availability"),{});
+  const msgs=useFirebase(chemin(gid,"messages"),{});
   const groupes=useFirebase("groupes",{});
   const stats=[{label:"Membres",value:Object.keys(users||{}).length,icon:"👥"},{label:"Groupes",value:Object.keys(groupes||{}).length,icon:"👪"},{label:"Jours dispo",value:Object.keys(avail||{}).length,icon:"📅"},{label:"Messages",value:Object.keys(msgs||{}).length,icon:"💬"}];
   return(
@@ -1222,7 +1227,7 @@ function AdminTheme({t}){
 function AdminUsers({t}){
   const usersObj=useFirebase("users",{});
   const passwords=useFirebase("passwords",{});
-  const avail=useFirebase("availability",{});
+  const groupes=useFirebase("groupes",{});
   const[newName,setNewName]=useState("");
   const[resetTarget,setRT]=useState(null);
   const[resetPw,setRPw]=useState("");
@@ -1233,8 +1238,13 @@ function AdminUsers({t}){
   async function addUser(){const n=newName.trim();if(!n||userList.includes(n))return;await set(ref(db,`users/${n}`),{name:n,createdAt:Date.now()});setNewName("");}
   async function removeUser(u){
     await remove(ref(db,`users/${u}`));await remove(ref(db,`passwords/${u}`));await remove(ref(db,`profiles/${u}`));
-    const av=avail||{};
-    for(const[date,day]of Object.entries(av)){const midi=(day?.midi||[]).filter(x=>x!==u);const soir=(day?.soir||[]).filter(x=>x!==u);await set(ref(db,`availability/${date}`),{midi,soir});}
+    for(const[g,gr]of Object.entries(groupes||{})){
+      await remove(ref(db,`groupes/${g}/membres/${u}`));
+      for(const[date,day]of Object.entries(gr?.availability||{})){
+        const midi=(day?.midi||[]).filter(x=>x!==u);const soir=(day?.soir||[]).filter(x=>x!==u);
+        await set(ref(db,`groupes/${g}/availability/${date}`),{midi,soir});
+      }
+    }
     if(resetTarget===u){setRT(null);setSR(false);}
   }
   async function applyReset(){
@@ -1364,20 +1374,20 @@ function AdminGroupes({t}){
   );
 }
 
-function AdminAvail({t}){
+function AdminAvail({t,gid}){
   const now=new Date();
   const todayStr=fmtDate(now.getFullYear(),now.getMonth(),now.getDate());
   const[year,setYear]=useState(now.getFullYear());
   const[month,setMonth]=useState(now.getMonth());
   const[sel,setSel]=useState(null);
   const usersObj=useFirebase("users",{});
-  const avail=useFirebase("availability",{});
+  const avail=useFirebase(chemin(gid,"availability"),{});
   const users=Object.keys(usersObj||{});
   const days=getDays(year,month);
   const first=getFirst(year,month);
   function getSlots(ds){const a=(avail||{})[ds]||{};return{midi:Array.isArray(a.midi)?a.midi:[],soir:Array.isArray(a.soir)?a.soir:[]};}
-  async function toggleUser(ds,slot,user){const{midi,soir}=getSlots(ds);const arr=slot==="midi"?midi:soir;const updated=arr.includes(user)?arr.filter(x=>x!==user):[...arr,user];await set(ref(db,`availability/${ds}/${slot}`),updated);}
-  async function clearDay(ds){await set(ref(db,`availability/${ds}`),{midi:[],soir:[]});}
+  async function toggleUser(ds,slot,user){if(!gid)return;const{midi,soir}=getSlots(ds);const arr=slot==="midi"?midi:soir;const updated=arr.includes(user)?arr.filter(x=>x!==user):[...arr,user];await set(ref(db,`groupes/${gid}/availability/${ds}/${slot}`),updated);}
+  async function clearDay(ds){if(!gid)return;await set(ref(db,`groupes/${gid}/availability/${ds}`),{midi:[],soir:[]});}
   function prevM(){if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);setSel(null);}
   function nextM(){if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1);setSel(null);}
   return(
@@ -1428,10 +1438,10 @@ function AdminAvail({t}){
   );
 }
 
-function AdminEvent({t}){
-  const avail=useFirebase("availability",{});
+function AdminEvent({t,gid}){
+  const avail=useFirebase(chemin(gid,"availability"),{});
   const usersObj=useFirebase("users",{});
-  const event=useFirebase("config/validatedEvent",null);
+  const event=useFirebase(chemin(gid,"validatedEvent"),null);
   const[title,setTitle]=useState("");
   const[selDate,setSelDate]=useState("");
   const[selSlot,setSelSlot]=useState("les-deux");
@@ -1452,10 +1462,11 @@ function AdminEvent({t}){
     const midi=Array.isArray(day.midi)?day.midi:[];
     const soir=Array.isArray(day.soir)?day.soir:[];
     const participants=[...new Set([...midi,...soir])];
-    await set(ref(db,"config/validatedEvent"),{date:selDate,title:title.trim(),slot:selSlot,message:message.trim(),address:address.trim(),mapsUrl:mapsUrl.trim(),participants,validatedAt:Date.now()});
+    if(!gid)return;
+    await set(ref(db,`groupes/${gid}/validatedEvent`),{date:selDate,title:title.trim(),slot:selSlot,message:message.trim(),address:address.trim(),mapsUrl:mapsUrl.trim(),participants,validatedAt:Date.now()});
     setSaved(true);setTimeout(()=>setSaved(false),2000);
   }
-  async function clearEvent(){await remove(ref(db,"config/validatedEvent"));}
+  async function clearEvent(){if(!gid)return;await remove(ref(db,`groupes/${gid}/validatedEvent`));}
   const textareaStyle={width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80};
   return(
     <div style={{padding:"8px 0 20px"}}>
@@ -1509,15 +1520,15 @@ function AdminEvent({t}){
   );
 }
 
-function AdminSorties({t}){
-  const avail=useFirebase("availability",{});
-  const sorties=useFirebase("sorties",{});
+function AdminSorties({t,gid}){
+  const avail=useFirebase(chemin(gid,"availability"),{});
+  const sorties=useFirebase(chemin(gid,"sorties"),{});
   const[title,setTitle]=useState("");
   const[selDate,setSelDate]=useState("");
   const[selSlot,setSelSlot]=useState("les-deux");
   const[saved,setSaved]=useState(false);
   const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
-  const event2=useFirebase("config/validatedEvent",null);
+  const event2=useFirebase(chemin(gid,"validatedEvent"),null);
   const now15=new Date();
   const today15=fmtDate(now15.getFullYear(),now15.getMonth(),now15.getDate());
   const limit15=new Date(now15);limit15.setDate(limit15.getDate()-15);
@@ -1537,10 +1548,11 @@ function AdminSorties({t}){
     const midi=Array.isArray(day.midi)?day.midi:[];
     const soir=Array.isArray(day.soir)?day.soir:[];
     const participants=[...new Set([...midi,...soir])];
-    await push(ref(db,"sorties"),{date:selDate,title:title.trim(),slot:selSlot,participants,archivedAt:Date.now()});
+    if(!gid)return;
+    await push(ref(db,`groupes/${gid}/sorties`),{date:selDate,title:title.trim(),slot:selSlot,participants,archivedAt:Date.now()});
     setSaved(true);setTitle("");setSelDate("");setTimeout(()=>setSaved(false),2000);
   }
-  async function deleteSortie(id){await remove(ref(db,`sorties/${id}`));}
+  async function deleteSortie(id){if(!gid)return;await remove(ref(db,`groupes/${gid}/sorties/${id}`));}
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}>
