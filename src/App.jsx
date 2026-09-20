@@ -314,7 +314,7 @@ function CalendarTab({currentUser,gid}){
   const avail=useFirebase(chemin(gid,"availability"),{});
   const event=useFirebase(chemin(gid,"validatedEvent"),null);
   const occupation=useFirebase(currentUser?`occupation/${currentUser}`:null,{});
-  const groupes=useFirebase("groupes",{});
+  const groupes=useFirebase("annuaire",{});
   const users=Object.keys(usersObj||{});
   const days=getDays(year,month);
   const first=getFirst(year,month);
@@ -1032,7 +1032,7 @@ function BarreGroupe({liste,gid,onChange,t,vide}){
 }
 
 function useGroupes(membre){
-  const groupes=useFirebase("groupes",{});
+  const groupes=useFirebase("annuaire",{});
   const liste=Object.entries(groupes||{})
     .filter(([,g])=>membre===null||(g?.membres||{})[membre])
     .sort((a,b)=>(a[1].ordre||99)-(b[1].ordre||99));
@@ -1201,7 +1201,7 @@ function AdminHome({t,onNav,gid}){
   const users=useFirebase("users",{});
   const avail=useFirebase(chemin(gid,"availability"),{});
   const msgs=useFirebase(chemin(gid,"messages"),{});
-  const groupes=useFirebase("groupes",{});
+  const groupes=useFirebase("annuaire",{});
   const stats=[{label:"Membres",value:Object.keys(users||{}).length,icon:"👥"},{label:"Groupes",value:Object.keys(groupes||{}).length,icon:"👪"},{label:"Jours dispo",value:Object.keys(avail||{}).length,icon:"📅"},{label:"Messages",value:Object.keys(msgs||{}).length,icon:"💬"}];
   return(
     <div style={{padding:"8px 0 20px"}}>
@@ -1279,7 +1279,8 @@ function AdminTheme({t}){
 
 function AdminUsers({t}){
   const usersObj=useFirebase("users",{});
-  const groupes=useFirebase("groupes",{});
+  const groupes=useFirebase("annuaire",{});
+  const contenu=useFirebase("groupes",{});
   const[newName,setNewName]=useState("");
   const[resetTarget,setRT]=useState(null);
   const[resetPw,setRPw]=useState("");
@@ -1296,9 +1297,9 @@ function AdminUsers({t}){
   async function removeUser(u){
     await remove(ref(db,`users/${u}`));await remove(ref(db,`profiles/${u}`));
     await remove(ref(db,`occupation/${u}`));
-    for(const[g,gr]of Object.entries(groupes||{})){
-      await remove(ref(db,`groupes/${g}/membres/${u}`));
-      for(const[date,day]of Object.entries(gr?.availability||{})){
+    for(const g of Object.keys(groupes||{})){
+      await remove(ref(db,`annuaire/${g}/membres/${u}`));
+      for(const[date,day]of Object.entries((contenu||{})[g]?.availability||{})){
         const midi=(day?.midi||[]).filter(x=>x!==u);const soir=(day?.soir||[]).filter(x=>x!==u);
         await set(ref(db,`groupes/${g}/availability/${date}`),{midi,soir});
       }
@@ -1346,7 +1347,7 @@ function AdminUsers({t}){
   );
 }
 function AdminGroupes({t}){
-  const groupes=useFirebase("groupes",{});
+  const groupes=useFirebase("annuaire",{});
   const usersObj=useFirebase("users",{});
   const[newNom,setNewNom]=useState("");
   const[open,setOpen]=useState(null);
@@ -1357,12 +1358,14 @@ function AdminGroupes({t}){
   async function addGroupe(){
     const nom=newNom.trim();if(!nom)return;
     const id=slug(nom);if(!id||(groupes||{})[id]){setNewNom("");return;}
-    await set(ref(db,`groupes/${id}`),{nom,type:"permanent",ordre:liste.length+1,createdAt:Date.now()});
+    await set(ref(db,`annuaire/${id}`),{nom,type:"permanent",ordre:liste.length+1,createdAt:Date.now()});
     setNewNom("");
   }
   async function delGroupe(id,nom){
     if(!window.confirm(`Supprimer définitivement le groupe « ${nom} » ?`))return;
-    await remove(ref(db,`groupes/${id}`));if(open===id)setOpen(null);
+    await remove(ref(db,`annuaire/${id}`));
+    await remove(ref(db,`groupes/${id}`));
+    if(open===id)setOpen(null);
   }
   async function resetGroupe(id,nom){
     if(!window.confirm(`Réinitialiser « ${nom} » ?\nMembres, dispos, messages et votes de ce groupe seront effacés.`))return;
@@ -1370,12 +1373,13 @@ function AdminGroupes({t}){
       const occ=(await get(ref(db,`occupation/${u}`))).val()||{};
       for(const cr of Object.keys(occ))if(occ[cr]&&occ[cr][id])await remove(ref(db,`occupation/${u}/${cr}/${id}`));
     }
-    await update(ref(db,`groupes/${id}`),{membres:null,availability:null,messages:null,proposals:null,validatedEvent:null,sorties:null});
+    await update(ref(db,`annuaire/${id}`),{membres:null});
+    await remove(ref(db,`groupes/${id}`));
   }
-  async function renameGroupe(id){const nom=editNom.trim();if(!nom)return;await set(ref(db,`groupes/${id}/nom`),nom);}
+  async function renameGroupe(id){const nom=editNom.trim();if(!nom)return;await set(ref(db,`annuaire/${id}/nom`),nom);}
   async function toggleMembre(id,u,dedans){
-    if(dedans)await remove(ref(db,`groupes/${id}/membres/${u}`));
-    else await set(ref(db,`groupes/${id}/membres/${u}`),true);
+    if(dedans)await remove(ref(db,`annuaire/${id}/membres/${u}`));
+    else await set(ref(db,`annuaire/${id}/membres/${u}`),true);
   }
   return(
     <div style={{padding:"8px 0 20px"}}>
