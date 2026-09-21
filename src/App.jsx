@@ -75,6 +75,27 @@ async function marquerOccupation(membre,date,slot,gid,valeur){
   if(valeur===null)await remove(r);else await set(r,valeur);
 }
 
+function useFirebaseCharge(path,defaultVal){
+  const[etat,setEtat]=useState({data:defaultVal,ok:false});
+  useEffect(()=>{
+    const unsub=onValue(ref(db,path),
+      snap=>{const v=snap.val();setEtat({data:v!==null&&v!==undefined?v:defaultVal,ok:true});},
+      ()=>setEtat(e=>({...e,ok:true})));
+    return()=>unsub();
+  },[path]);
+  return[etat.data,etat.ok];
+}
+
+function EcranChargement(){
+  return(
+    <div style={{minHeight:"100vh",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#07070d",gap:14}}>
+      <style>{"@keyframes sablier{0%{transform:rotate(0deg)}45%{transform:rotate(0deg)}55%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}"}</style>
+      <div style={{fontSize:40,animation:"sablier 1.6s ease-in-out infinite"}}>⏳</div>
+      <div style={{color:"#8a8aa0",fontSize:12,letterSpacing:2,fontFamily:"Inter,sans-serif"}}>CHARGEMENT…</div>
+    </div>
+  );
+}
+
 function useFirebase(path,defaultVal){
   const[data,setData]=useState(defaultVal);
   useEffect(()=>{
@@ -170,13 +191,16 @@ function SplashScreen({onEnter}){
   const[adminPw,setAdminPw]=useState("");
   const[adminErr,setAdminErr]=useState(false);
   const[fadeIn,setFadeIn]=useState(false);
-  const appName=useFirebase("config/appName","WhenWeMeet");
+  const[appName,okNom]=useFirebaseCharge("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
-  const usersObj=useFirebase("users",{});
-  const themeData=useFirebase("config/theme",DEFAULT_THEME);
+  const[usersObj,okUsers]=useFirebaseCharge("users",{});
+  const[themeData,okTheme]=useFirebaseCharge("config/theme",DEFAULT_THEME);
   const profiles=useFirebase("profiles",{});
+  const[delaiEcoule,setDelaiEcoule]=useState(false);
+  useEffect(()=>{const h=setTimeout(()=>setDelaiEcoule(true),6000);return()=>clearTimeout(h);},[]);
+  const pret=(okNom&&okUsers&&okTheme)||delaiEcoule;
   useEffect(()=>{window._theme=themeData;},[themeData]);
-  useEffect(()=>{setTimeout(()=>setFadeIn(true),80);},[]);
+  useEffect(()=>{if(pret)setTimeout(()=>setFadeIn(true),80);},[pret]);
   const t=themeData||DEFAULT_THEME;
   const userList=Object.keys(usersObj||{});
   function openLogin(u){setLoginUser(u);setLoginPw("");setLoginErr("");setPhase("login");}
@@ -215,6 +239,7 @@ function SplashScreen({onEnter}){
   const stars=Array.from({length:28},(_,i)=>({x:(i*37+11)%100,y:(i*53+7)%100,r:0.8+(i%3)*0.6,o:0.2+(i%4)*0.15}));
   const bigBtn={padding:"14px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",width:"100%"};
   const backBtn={background:"none",border:"none",color:t.muted,fontSize:13,cursor:"pointer",padding:"4px"};
+  if(!pret)return <EcranChargement/>;
   return(
     <div style={{minHeight:"100vh",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%,#1a1640 0%,${t.bg} 70%)`,position:"relative",overflow:"hidden",opacity:fadeIn?1:0,transition:"opacity 0.6s ease",paddingTop:"env(safe-area-inset-top)"}}>
       <style>{GCSS}</style>
@@ -235,7 +260,7 @@ function SplashScreen({onEnter}){
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{color:t.muted,fontSize:12,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Choisissez votre accès</div>
             <div style={{background:`${t.card}CC`,border:`1px solid ${t.border}`,borderRadius:18,padding:"4px",maxHeight:240,overflowY:"auto"}}>
-              {userList.length===0&&<div style={{color:t.muted,fontSize:13,padding:"16px"}}>Aucun membre — crée ton profil !</div>}
+              {userList.length===0&&<div style={{color:t.muted,fontSize:13,padding:"16px"}}>Aucun membre pour l'instant — contacte l'administrateur.</div>}
               {userList.map((u,i)=>{
                 const col=(profiles||{})[u]?.color||AVATAR_COLORS[0];
                 return(
