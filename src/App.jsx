@@ -760,14 +760,13 @@ function ThemesTab({currentUser}){
 // ─── Vote Tab ─────────────────────────────────────────────────────────────────
 function VoteTab({currentUser,isAdmin=false,gid}){
   const t=C();
+  const VIDE={category:"",titre:"",adresse:"",site:"",telephone:"",description:""};
   const[showForm,setShowForm]=useState(false);
-  const[category,setCategory]=useState("");
-  const[description,setDescription]=useState("");
+  const[editId,setEditId]=useState(null);
+  const[champs,setChamps]=useState(VIDE);
   const[saving,setSaving]=useState(false);
   const proposals=useFirebase(chemin(gid,"proposals"),{});
-  const usersObj=useFirebase("users",{});
   const profiles=useFirebase("profiles",{});
-
 
   const CATEGORIES=["🍽 Restaurant","🍺 Bar","🌳 Pique-nique","🎭 Autre"];
   const propList=Object.entries(proposals||{}).map(([id,p])=>({id,...p})).sort((a,b)=>{
@@ -776,14 +775,44 @@ function VoteTab({currentUser,isAdmin=false,gid}){
     return votesB-votesA;
   });
 
+  const lienWeb=u=>/^https?:\/\//i.test(u)?u:`https://${u}`;
+  const domaine=u=>{try{return new URL(lienWeb(u)).hostname.replace(/^www\./,"");}catch{return u;}};
+  const lienMaps=a=>`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}`;
+  const lienTel=n=>`tel:${n.replace(/[^\d+]/g,"")}`;
+
+  const maj=(k,v)=>setChamps(c=>({...c,[k]:v}));
+  const valide=!!champs.category&&!!(champs.titre.trim()||champs.description.trim());
+
+  function nettoyer(c){
+    const out={category:c.category};
+    for(const k of["titre","adresse","site","telephone","description"]){const v=(c[k]||"").trim();out[k]=v||null;}
+    return out;
+  }
+  function fermer(){setShowForm(false);setEditId(null);setChamps(VIDE);}
+  function ouvrirCreation(){
+    if(showForm){fermer();return;}
+    setEditId(null);setChamps(VIDE);setShowForm(true);
+  }
+  function ouvrirEdition(p){
+    setShowForm(false);setEditId(p.id);
+    setChamps({category:p.category||"",titre:p.titre||"",adresse:p.adresse||"",site:p.site||"",telephone:p.telephone||"",description:p.description||""});
+  }
+
   async function addProposal(){
-    if(!category||!description.trim())return;
+    if(!valide||!gid)return;
     setSaving(true);
-    await push(ref(db,`groupes/${gid}/proposals`),{
-      category,description:description.trim(),
-      author:currentUser,createdAt:Date.now(),votes:{}
-    });
-    setCategory("");setDescription("");setShowForm(false);setSaving(false);
+    try{
+      await push(ref(db,`groupes/${gid}/proposals`),{...nettoyer(champs),author:currentUser,createdAt:Date.now(),votes:{}});
+      fermer();
+    }finally{setSaving(false);}
+  }
+  async function saveEdit(){
+    if(!valide||!gid||!editId)return;
+    setSaving(true);
+    try{
+      await update(ref(db,`groupes/${gid}/proposals/${editId}`),{...nettoyer(champs),modifiedAt:Date.now(),modifiedBy:currentUser});
+      fermer();
+    }finally{setSaving(false);}
   }
   async function vote(propId,val){
     const prop=(proposals||{})[propId];
@@ -795,8 +824,49 @@ function VoteTab({currentUser,isAdmin=false,gid}){
       await update(ref(db,`groupes/${gid}/proposals/${propId}/votes`),{[currentUser]:val});
     }
   }
-  async function deleteProposal(propId){
-    await remove(ref(db,`groupes/${gid}/proposals/${propId}`));
+  async function deleteProposal(p){
+    const nom=(p.titre||p.description||"cette proposition").slice(0,60);
+    if(!window.confirm(`Supprimer « ${nom} » ?\n\nLes votes associés seront perdus.`))return;
+    await remove(ref(db,`groupes/${gid}/proposals/${p.id}`));
+    if(editId===p.id)fermer();
+  }
+
+  const champStyle={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
+  const labelStyle={color:t.muted,fontSize:11,fontWeight:600,margin:"12px 0 5px"};
+  const lienStyle={color:t.accent,fontSize:12,textDecoration:"none",overflowWrap:"anywhere",wordBreak:"break-word"};
+  const petitBtn=(coul)=>({background:"none",border:`1px solid ${coul}55`,borderRadius:8,padding:"4px 8px",color:coul,fontSize:12,cursor:"pointer",flexShrink:0});
+
+  function rendreFormulaire(enEdition){
+    return(
+      <div style={{background:t.card,border:`1px solid ${t.accent}55`,borderRadius:16,padding:"14px",marginBottom:14}}>
+        {enEdition&&<div style={{color:t.text,fontWeight:700,fontSize:14,marginBottom:4}}>✏️ Modifier la proposition</div>}
+        <div style={{...labelStyle,marginTop:enEdition?8:0}}>Catégorie *</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {CATEGORIES.map(c=>(
+            <button key={c} onClick={()=>maj("category",c)} style={{padding:"6px 12px",borderRadius:20,background:champs.category===c?t.accent:t.bg,border:`1px solid ${champs.category===c?t.accent:t.border}`,color:champs.category===c?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <div style={labelStyle}>Nom du lieu</div>
+        <input value={champs.titre} onChange={e=>maj("titre",e.target.value)} placeholder="Ex. Le Nomade Brewery" style={champStyle}/>
+        <div style={labelStyle}>Adresse</div>
+        <input value={champs.adresse} onChange={e=>maj("adresse",e.target.value)} placeholder="Ex. 29 route de Lyon, 69680 Chassieu" style={champStyle}/>
+        <div style={labelStyle}>Lien (site internet, Google Maps…)</div>
+        <input type="url" inputMode="url" value={champs.site} onChange={e=>maj("site",e.target.value)} placeholder="https://…" style={champStyle}/>
+        <div style={labelStyle}>Téléphone</div>
+        <input type="tel" inputMode="tel" value={champs.telephone} onChange={e=>maj("telephone",e.target.value)} placeholder="Ex. 04 78 00 00 00" style={champStyle}/>
+        <div style={labelStyle}>Description</div>
+        <textarea value={champs.description} onChange={e=>maj("description",e.target.value)} placeholder="Ambiance, budget, pourquoi cet endroit…" style={{...champStyle,resize:"vertical",minHeight:110,lineHeight:1.45}}/>
+        <div style={{color:t.muted,fontSize:10,marginTop:6}}>* Catégorie obligatoire, ainsi qu'un nom de lieu ou une description. Le reste est facultatif.</div>
+        <div style={{display:"flex",gap:8,marginTop:12}}>
+          <button onClick={enEdition?saveEdit:addProposal} disabled={!valide||saving} style={{flex:1,padding:"12px",borderRadius:12,background:valide?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:valide?"pointer":"not-allowed"}}>
+            {saving?"Envoi...":enEdition?"✅ Enregistrer":"✅ Soumettre ma proposition"}
+          </button>
+          {enEdition&&<button onClick={fermer} style={{padding:"12px 14px",borderRadius:12,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:13,cursor:"pointer"}}>Annuler</button>}
+        </div>
+      </div>
+    );
   }
 
   return(
@@ -806,32 +876,13 @@ function VoteTab({currentUser,isAdmin=false,gid}){
           <div style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Syne,sans-serif"}}>🗳️ Voter pour un lieu</div>
           <div style={{color:t.muted,fontSize:12}}>Propose et vote pour votre prochaine sortie !</div>
         </div>
-        <button onClick={()=>setShowForm(s=>!s)} style={{padding:"8px 14px",borderRadius:12,background:showForm?t.card:t.accent,border:`1px solid ${showForm?t.border:t.accent}`,color:showForm?t.muted:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+        <button onClick={ouvrirCreation} style={{padding:"8px 14px",borderRadius:12,background:showForm?t.card:t.accent,border:`1px solid ${showForm?t.border:t.accent}`,color:showForm?t.muted:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
           {showForm?"Annuler":"+ Proposer"}
         </button>
       </div>
 
-      {/* Formulaire */}
-      {showForm&&(
-        <div style={{background:t.card,border:`1px solid ${t.accent}55`,borderRadius:16,padding:"14px",marginBottom:14}}>
-          <div style={{color:t.muted,fontSize:12,fontWeight:600,marginBottom:8}}>Catégorie</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {CATEGORIES.map(c=>(
-              <button key={c} onClick={()=>setCategory(c)} style={{padding:"6px 12px",borderRadius:20,background:category===c?t.accent:t.bg,border:`1px solid ${category===c?t.accent:t.border}`,color:category===c?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
-                {c}
-              </button>
-            ))}
-          </div>
-          {/* Champ libre si "Autre" ou pour compléter */}
-          <div style={{color:t.muted,fontSize:12,fontWeight:600,marginBottom:6}}>Nom du lieu ou description</div>
-          <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Décris le lieu, l'ambiance, le budget..." style={{width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80}}/>
-          <button onClick={addProposal} disabled={!category||!description.trim()||saving} style={{width:"100%",marginTop:10,padding:"12px",borderRadius:12,background:category&&description.trim()?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:category&&description.trim()?"pointer":"not-allowed"}}>
-            {saving?"Envoi...":"✅ Soumettre ma proposition"}
-          </button>
-        </div>
-      )}
+      {showForm&&!editId&&rendreFormulaire(false)}
 
-      {/* Liste des propositions */}
       {propList.length===0?(
         <div style={{textAlign:"center",padding:"40px 20px"}}>
           <div style={{fontSize:40,marginBottom:10}}>🗳️</div>
@@ -840,28 +891,43 @@ function VoteTab({currentUser,isAdmin=false,gid}){
         </div>
       ):(
         propList.map((p,idx)=>{
+          if(editId===p.id)return <div key={p.id}>{rendreFormulaire(true)}</div>;
           const votes=p.votes||{};
           const pour=Object.values(votes).filter(v=>v==="pour").length;
           const contre=Object.values(votes).filter(v=>v==="contre").length;
           const myVote=votes[currentUser];
-          const canDelete=p.author===currentUser||isAdmin;
-          const prof=(profiles||{})[p.author]||{};
+          const auteur=p.author||"?";
+          const canEdit=auteur===currentUser||isAdmin;
+          const prof=(profiles||{})[auteur]||{};
           const col=prof.color||t.accent;
           return(
             <div key={p.id} style={{background:t.card,border:`1px solid ${idx===0&&pour>0?t.green+"66":t.border}`,borderRadius:16,padding:"14px",marginBottom:10,position:"relative"}}>
               {idx===0&&pour>0&&<div style={{position:"absolute",top:-8,left:14,background:t.green,color:"#000",fontSize:10,fontWeight:800,padding:"2px 10px",borderRadius:20}}>🏆 Favori</div>}
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:8}}>
-                <div style={{flex:1}}>
+                <div style={{flex:1,minWidth:0}}>
                   <div style={{color:t.accent,fontSize:12,fontWeight:700,marginBottom:3}}>{p.category}</div>
-                  <div style={{color:t.text,fontSize:14,lineHeight:1.4}}>{p.description}</div>
+                  {p.titre&&<div style={{color:t.text,fontSize:15,fontWeight:700,marginBottom:4,overflowWrap:"anywhere"}}>{p.titre}</div>}
+                  {p.description&&<div style={{color:t.text,fontSize:13,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",opacity:p.titre?0.85:1}}>{p.description}</div>}
+                  {(p.adresse||p.site||p.telephone)&&(
+                    <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>
+                      {p.adresse&&<a href={lienMaps(p.adresse)} target="_blank" rel="noopener noreferrer" style={lienStyle}>📍 {p.adresse}</a>}
+                      {p.site&&<a href={lienWeb(p.site)} target="_blank" rel="noopener noreferrer" style={lienStyle}>🌐 {domaine(p.site)}</a>}
+                      {p.telephone&&<a href={lienTel(p.telephone)} style={lienStyle}>📞 {p.telephone}</a>}
+                    </div>
+                  )}
                 </div>
-                {canDelete&&<button onClick={()=>deleteProposal(p.id)} style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>}
+                {canEdit&&(
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>
+                    <button onClick={()=>ouvrirEdition(p)} title="Modifier" style={petitBtn(t.accent)}>✏️</button>
+                    <button onClick={()=>deleteProposal(p)} title="Supprimer" style={petitBtn(t.danger)}>✕</button>
+                  </div>
+                )}
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-                <div style={{width:20,height:20,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>{p.author[0]}</div>
-                <span style={{color:t.muted,fontSize:11}}>par {p.author}</span>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                <div style={{width:20,height:20,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>{auteur[0]}</div>
+                <span style={{color:t.muted,fontSize:11}}>par {auteur}</span>
+                {p.modifiedAt&&<span style={{color:t.muted,fontSize:11,fontStyle:"italic"}}>· modifiée{p.modifiedBy&&p.modifiedBy!==auteur?` par ${p.modifiedBy}`:""}</span>}
               </div>
-              {/* Votes boutons */}
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <button onClick={()=>vote(p.id,"pour")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="pour"?`${t.green}33`:t.bg,border:`2px solid ${myVote==="pour"?t.green:t.border}`,color:myVote==="pour"?t.green:t.muted,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                   👍 Pour <span style={{background:t.green+"33",borderRadius:10,padding:"1px 7px",color:t.green,fontSize:12}}>{pour}</span>
@@ -870,7 +936,6 @@ function VoteTab({currentUser,isAdmin=false,gid}){
                   👎 Contre <span style={{background:t.danger+"22",borderRadius:10,padding:"1px 7px",color:t.danger,fontSize:12}}>{contre}</span>
                 </button>
               </div>
-              {/* Liste des votants */}
               {Object.entries(votes).length>0&&(
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {Object.entries(votes).map(([voter,v])=>(
