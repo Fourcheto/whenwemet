@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 comptes.json
 cle.txt
+
+service-account.json
