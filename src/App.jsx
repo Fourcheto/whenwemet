@@ -817,12 +817,9 @@ function VoteTab({currentUser,isAdmin=false,gid}){
   async function vote(propId,val){
     const prop=(proposals||{})[propId];
     const votes=prop?.votes||{};
-    if(votes[currentUser]===val){
-      const newV={...votes};delete newV[currentUser];
-      await set(ref(db,`groupes/${gid}/proposals/${propId}/votes`),newV);
-    } else {
-      await update(ref(db,`groupes/${gid}/proposals/${propId}/votes`),{[currentUser]:val});
-    }
+    const monVote=ref(db,`groupes/${gid}/proposals/${propId}/votes/${currentUser}`);
+    if(votes[currentUser]===val)await remove(monVote);
+    else await set(monVote,val);
   }
   async function deleteProposal(p){
     const nom=(p.titre||p.description||"cette proposition").slice(0,60);
