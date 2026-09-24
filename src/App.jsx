@@ -945,7 +945,8 @@ function EventsTab({currentUser,gid}){
   useEffect(()=>{
     if(currentUser&&event)localStorage.setItem(`seen_event_${currentUser}`,(event.validatedAt?.toString()||""));
   },[event,currentUser]);
-  const hasEvent=event&&event.date;
+  const dejaArchive=!!(event&&event.date&&sortieList.some(s=>s.date===event.date));
+  const hasEvent=event&&event.date&&!dejaArchive;
   const eventDate=hasEvent?new Date(event.date+"T12:00:00"):null;
   const diff=(()=>{
     if(!eventDate)return null;
@@ -2073,6 +2074,7 @@ function AdminSorties({t,gid}){
     const participants=[...new Set([...midi,...soir])];
     if(!gid)return;
     await push(ref(db,`groupes/${gid}/sorties`),{date:selDate,title:title.trim(),slot:selSlot,participants,archivedAt:Date.now()});
+    if(event2&&event2.date===selDate)await remove(ref(db,`groupes/${gid}/validatedEvent`));
     setSaved(true);setTitle("");setSelDate("");setTimeout(()=>setSaved(false),2000);
   }
   async function deleteSortie(id){
