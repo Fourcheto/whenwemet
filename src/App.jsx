@@ -568,6 +568,15 @@ function ChatTab({currentUser,gid}){
     await push(ref(db,`groupes/${gid}/messages`),{user:currentUser,text,time,ts:Date.now()});
     setInput("");
   }
+  async function supprimerMessage(msgId){
+    if(!gid)return;
+    if(!window.confirm("Supprimer ce message ?"))return;
+    try{
+      await remove(ref(db,`groupes/${gid}/messages/${msgId}`));
+    }catch(e){
+      window.alert("Impossible de supprimer le message : "+(e?.code||e?.message||"erreur inconnue"));
+    }
+  }
   async function addReaction(msgId,emoji){
     if(!gid)return;
     const msg=msgsObj[msgId];
@@ -612,7 +621,10 @@ function ChatTab({currentUser,gid}){
                 <div id={`r-${m.id}`} style={{display:"none",gap:4,marginTop:3,flexWrap:"wrap",justifyContent:isMe?"flex-end":"flex-start"}}>
                   {EMOJI_REACTIONS.map(e=><button key={e} onClick={()=>{addReaction(m.id,e);document.getElementById(`r-${m.id}`).style.display="none";}} style={{fontSize:16,padding:"2px 4px",background:"none",border:"none",cursor:"pointer"}}>{e}</button>)}
                 </div>
-                <span style={{color:t.muted,fontSize:10,marginTop:2,marginLeft:4,marginRight:4}}>{m.time}</span>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,marginLeft:4,marginRight:4}}>
+                  <span style={{color:t.muted,fontSize:10}}>{m.time}</span>
+                  {isMe&&<button onClick={()=>supprimerMessage(m.id)} title="Supprimer ce message" style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:0,lineHeight:1,opacity:0.7}}>🗑</button>}
+                </div>
               </div>
             </div>
           );
