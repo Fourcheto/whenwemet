@@ -598,10 +598,10 @@ function ChatTab({currentUser,gid}){
                 </div>
               )}
               <div style={{display:"flex",flexDirection:"column",alignItems:isMe?"flex-end":"flex-start"}}>
-                {!isMe&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,marginLeft:4}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,marginLeft:4,marginRight:4,flexDirection:isMe?"row-reverse":"row"}}>
                   <Avatar nom={m.user} profiles={profiles} taille={AV.xs} t={t}/>
                   <span style={{color:t.muted,fontSize:11}}>{m.user}</span>
-                </div>}
+                </div>
                 <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?t.accent:t.card,color:isMe?"#fff":t.text,fontSize:14,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:3,justifyContent:isMe?"flex-end":"flex-start"}}>
                   {Object.entries(reactions).filter(([,u])=>u.length>0).map(([emoji,users])=>(
@@ -1044,7 +1044,15 @@ function ThemesTab({currentUser}){
       window.alert("Cette image n'a pas pu être utilisée.");
     }finally{setEnvoiPhoto(false);}
   }
-  async function retirerPhoto(){await remove(ref(db,`avatars/${currentUser}`));}
+  async function retirerAvatar(){
+    try{
+      await remove(ref(db,`avatars/${currentUser}`));
+      await update(ref(db,`profiles/${currentUser}`),{icone:null,photo:null});
+      rerender(n=>n+1);
+    }catch(e){
+      window.alert("Impossible de retirer l'avatar : "+(e?.code||e?.message||"erreur inconnue"));
+    }
+  }
   return(
     <div style={{padding:"10px 12px"}}>
       <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Mon avatar</div>
@@ -1057,7 +1065,7 @@ function ThemesTab({currentUser}){
             <div style={{color:t.muted,fontSize:11}}>{prof.photo?"Photo personnelle":prof.icone?"Icône personnalisée":"Initiale du prénom"}</div>
           </div>
           {(prof.icone||prof.photo)&&(
-            <button onClick={()=>prof.photo?retirerPhoto():majProfil({icone:null})} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.muted,fontSize:11,cursor:"pointer"}}>Retirer</button>
+            <button onClick={retirerAvatar} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.muted,fontSize:11,cursor:"pointer"}}>Retirer</button>
           )}
         </div>
         <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Couleur du fond</div>
