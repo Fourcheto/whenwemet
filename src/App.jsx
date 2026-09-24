@@ -1499,7 +1499,9 @@ function UserApp({currentUser,onLogout}){
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
   usePresence(currentUser);
   const{liste:mesGroupes,gid,choisir:choisirGroupe}=useGroupes(currentUser);
-  const event=useFirebase(chemin(gid,"validatedEvent"),null);
+  const eventBrut=useFirebase(chemin(gid,"validatedEvent"),null);
+  const sortiesGroupe=useFirebase(chemin(gid,"sorties"),{});
+  const event=(eventBrut&&eventBrut.date&&Object.values(sortiesGroupe||{}).some(s=>s&&s.date===eventBrut.date))?null:eventBrut;
 
   useEffect(()=>{
     const prof=(profiles||{})[currentUser]||{};
