@@ -116,6 +116,38 @@ function useProfils(){
   return fusion;
 }
 
+// ─── Adresse postale : ouvrir dans Maps ou copier ─────────────────────────────
+function AdressePostale({adresse,t,taille=14,couleur}){
+  const[copie,setCopie]=useState(false);
+  if(!adresse)return null;
+  const lien=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adresse)}`;
+  async function copier(){
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(adresse);
+      else{
+        const z=document.createElement("textarea");z.value=adresse;z.style.position="fixed";z.style.opacity="0";
+        document.body.appendChild(z);z.select();document.execCommand("copy");document.body.removeChild(z);
+      }
+      setCopie(true);setTimeout(()=>setCopie(false),1600);
+    }catch{
+      window.alert(adresse);
+    }
+  }
+  return(
+    <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+      <a href={lien} target="_blank" rel="noopener noreferrer" title="Ouvrir dans Google Maps"
+        style={{display:"flex",alignItems:"flex-start",gap:8,flex:1,minWidth:0,textDecoration:"none"}}>
+        <span style={{fontSize:taille+3,flexShrink:0,lineHeight:1.3}}>📍</span>
+        <span style={{color:couleur||t.accent,fontSize:taille,lineHeight:1.4,overflowWrap:"anywhere",textDecoration:"underline",textUnderlineOffset:3}}>{adresse}</span>
+      </a>
+      <button onClick={copier} title="Copier l'adresse"
+        style={{flexShrink:0,background:"none",border:`1px solid ${copie?t.green:t.border}`,borderRadius:8,padding:"3px 8px",color:copie?t.green:t.muted,fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>
+        {copie?"✓ Copié":"📋"}
+      </button>
+    </div>
+  );
+}
+
 function Avatar({nom,profiles,taille=AV.md,online=false,t,fond}){
   const prof=(profiles||{})[nom]||{};
   const couleur=fond||prof.color||t.accent;
@@ -940,7 +972,7 @@ function EventsTab({currentUser,gid}){
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>📅</span><span style={{color:t.text,fontSize:14}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span></div>
                 {event.slot&&<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>{event.slot==="midi"?"🍽":event.slot==="soir"?"🌙":"🍽🌙"}</span><span style={{color:t.text,fontSize:14}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi et soir"}</span></div>}
-                {event.address&&<div style={{display:"flex",alignItems:"flex-start",gap:10}}><span style={{fontSize:18,flexShrink:0}}>📍</span><span style={{color:t.text,fontSize:14,lineHeight:1.4}}>{event.address}</span></div>}
+                {event.address&&<AdressePostale adresse={event.address} t={t} taille={14}/>}
                 {event.mapsUrl&&(
                   <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:12,textDecoration:"none"}}>
                     <span style={{fontSize:18}}>🗺️</span>
@@ -1224,7 +1256,7 @@ function VoteTab({currentUser,isAdmin=false,gid}){
                   {p.description&&<div style={{color:t.text,fontSize:13,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",opacity:p.titre?0.85:1}}>{p.description}</div>}
                   {(p.adresse||p.site||p.telephone)&&(
                     <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>
-                      {p.adresse&&<a href={lienMaps(p.adresse)} target="_blank" rel="noopener noreferrer" style={lienStyle}>📍 {p.adresse}</a>}
+                      {p.adresse&&<AdressePostale adresse={p.adresse} t={t} taille={12}/>}
                       {p.site&&<a href={lienWeb(p.site)} target="_blank" rel="noopener noreferrer" style={lienStyle}>🌐 {domaine(p.site)}</a>}
                       {p.telephone&&<a href={lienTel(p.telephone)} style={lienStyle}>📞 {p.telephone}</a>}
                     </div>
@@ -1392,7 +1424,7 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
                 {!past&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>⏳</span><span style={{color:t.green,fontSize:15,fontWeight:700}}>Dans {diff} jour{diff>1?"s":""} !</span></div>}
                 {past&&<div style={{color:t.danger,fontSize:12,fontWeight:600}}>✅ Événement passé</div>}
                 {event.slot&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>{event.slot==="midi"?"🍽":"🌙"}</span><span style={{color:t.muted,fontSize:12}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi & soir"}</span></div>}
-                {event.address&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>📍</span><span style={{color:t.muted,fontSize:13}}>{event.address}</span></div>}
+                {event.address&&<AdressePostale adresse={event.address} t={t} taille={13}/>}
                 {event.mapsUrl&&(
                   <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:10,textDecoration:"none",marginTop:2}}>
                     <span style={{fontSize:16}}>🗺️</span>
@@ -1953,7 +1985,7 @@ function AdminEvent({t,gid}){
               <div style={{color:t.muted,fontSize:12,marginTop:4}}>{evDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
               {isPastEvent&&<div style={{color:t.danger,fontSize:12,marginTop:4,fontWeight:600}}>⚠️ Cet événement est passé — pensez à l'archiver !</div>}
               {event.message&&<div style={{color:t.muted,fontSize:12,marginTop:4,fontStyle:"italic"}}>"{event.message}"</div>}
-              {event.address&&<div style={{color:t.muted,fontSize:12,marginTop:2}}>📍 {event.address}</div>}
+              {event.address&&<div style={{marginTop:4}}><AdressePostale adresse={event.address} t={t} taille={12}/></div>}
             </div>
             <button onClick={clearEvent} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:13,cursor:"pointer"}}>🗑 Supprimer l'événement</button>
           </ACard>
