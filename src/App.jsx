@@ -878,11 +878,11 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
                 <span style={{color:t.text,fontSize:FS.sm,fontWeight:600}}>{a.nom}</span>
                 {a.etoiles>0&&<Etoiles note={a.etoiles} couleur={couleurDe(a.nom)}/>}
                 <span style={{flex:1}}/>
-                {(a.nom===currentUser||isAdmin)&&(
-                  <button onClick={()=>supprimerAvis(a.nom)} style={{background:"none",border:"none",color:t.danger,fontSize:FS.sm,cursor:"pointer"}}>✕</button>
-                )}
                 {a.nom===currentUser&&(
-                  <button onClick={ouvrirEdition} style={{background:"none",border:"none",color:t.accent,fontSize:FS.sm,cursor:"pointer"}}>✏️</button>
+                  <button onClick={ouvrirEdition} title="Modifier" style={{background:"none",border:`1px solid ${t.border}`,borderRadius:8,padding:"5px 9px",color:t.accent,fontSize:FS.sm,cursor:"pointer"}}>✏️</button>
+                )}
+                {(a.nom===currentUser||isAdmin)&&(
+                  <button onClick={()=>supprimerAvis(a.nom)} title="Supprimer" style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"5px 9px",marginLeft:6,color:t.danger,fontSize:FS.sm,cursor:"pointer"}}>✕</button>
                 )}
               </div>
               {a.texte&&<div style={{color:t.text,fontSize:FS.sm,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{a.texte}</div>}
