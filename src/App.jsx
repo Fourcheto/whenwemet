@@ -1600,6 +1600,7 @@ function AdminPanel({onExit}){
     {id:"avail",icon:"📅",label:"Dispos"},
     {id:"event",icon:"🎯",label:"Événement"},
     {id:"sorties",icon:"📖",label:"Sorties"},
+    {id:"surveillance",icon:"📊",label:"Surveillance"},
     {id:"security",icon:"🔐",label:"Sécurité"},
     {id:"votes",icon:"🗳️",label:"Votes"},
   ];
@@ -1632,6 +1633,7 @@ function AdminPanel({onExit}){
         {section==="avail"    &&<AdminAvail t={t} gid={gid}/>}
         {section==="event"    &&<AdminEvent t={t} gid={gid}/>}
         {section==="sorties"  &&<AdminSorties t={t} gid={gid}/>}
+        {section==="surveillance"&&<AdminSurveillance t={t}/>}
         {section==="security" &&<AdminSecurity t={t}/>}
         {section==="votes"    &&<VoteTab currentUser="admin" isAdmin={true} gid={gid}/>}
       </div>
@@ -2104,6 +2106,135 @@ function AdminSorties({t,gid}){
             <CarteSortie key={s.id} s={s} gid={gid} currentUser="admin" isAdmin t={t} onSupprimer={()=>deleteSortie(s.id)}/>
           ))}
         </ACard>
+      )}
+    </div>
+  );
+}
+
+// ─── Surveillance : volume par groupe et nettoyage ────────────────────────────
+const LIMITE_GRATUITE=1e9; // 1 Go : limite indicative du plan gratuit Firebase
+const JOURS_DISPOS=30;     // disponibilites passees gardees au moins 30 jours (l'archivage en a besoin)
+const MOIS_ANCIEN=6;       // propositions et messages consideres perimes au-dela
+function octets(v){return v==null?0:new TextEncoder().encode(JSON.stringify(v)).length;}
+function fmtOctets(n){
+  if(n<1024)return `${n} o`;
+  if(n<1048576)return `${Math.round(n/1024)} Ko`;
+  if(n<1073741824)return `${(n/1048576).toFixed(1)} Mo`;
+  return `${(n/1073741824).toFixed(2)} Go`;
+}
+async function lireUneFois(cle){try{return (await get(ref(db,cle))).val();}catch{return undefined;}}
+
+function AdminSurveillance({t}){
+  const[etat,setEtat]=useState(null);
+  const[charge,setCharge]=useState(false);
+  const[msg,setMsg]=useState(null);
+  async function analyser(){
+    setCharge(true);
+    try{
+      const annuaire=(await lireUneFois("annuaire"))||{};
+      const auj=new Date();auj.setHours(0,0,0,0);
+      const limD=new Date(auj);limD.setDate(limD.getDate()-JOURS_DISPOS);
+      const limiteDispo=fmtDate(limD.getFullYear(),limD.getMonth(),limD.getDate());
+      const limM=new Date(auj);limM.setMonth(limM.getMonth()-MOIS_ANCIEN);
+      const limiteTs=limM.getTime();
+      const groupes=[];
+      for(const[id,g]of Object.entries(annuaire)){
+        const d=(await lireUneFois(`groupes/${id}`))||{};
+        const dispos=d.availability||{},msgs=d.messages||{},props=d.proposals||{},sorties=d.sorties||{},photos=d.photos||{};
+        groupes.push({
+          id,nom:g?.nom||id,
+          nb:{dispos:Object.keys(dispos).length,msgs:Object.keys(msgs).length,props:Object.keys(props).length,sorties:Object.keys(sorties).length,photos:Object.values(photos).reduce((n,p)=>n+Object.keys(p||{}).length,0)},
+          poids:{dispos:octets(d.availability),msgs:octets(d.messages),props:octets(d.proposals),sorties:octets(d.sorties),photos:octets(d.photos)},
+          total:octets(d),
+          vieuxDispos:Object.entries(dispos).filter(([date])=>date<limiteDispo).map(([date,j])=>({date,midi:Array.isArray(j?.midi)?j.midi:[],soir:Array.isArray(j?.soir)?j.soir:[]})),
+          vieuxProps:Object.entries(props).filter(([,p])=>p&&p.createdAt&&p.createdAt<limiteTs).map(([pid])=>pid),
+          vieuxMsgs:Object.entries(msgs).filter(([,m])=>m&&m.ts&&m.ts<limiteTs).map(([mid])=>mid),
+        });
+      }
+      const avatars=octets(await lireUneFois("avatars"));
+      const occupation=octets(await lireUneFois("occupation"));
+      const total=groupes.reduce((n,g)=>n+g.total,0)+avatars+occupation;
+      setEtat({groupes,avatars,occupation,total});
+    }catch(e){
+      setMsg({ok:false,text:"Analyse impossible : "+(e?.code||e?.message||"erreur inconnue")});
+    }finally{setCharge(false);}
+  }
+  async function agir(fn,texte){
+    setCharge(true);setMsg(null);
+    try{
+      await fn();
+      setMsg({ok:true,text:texte});
+    }catch(e){
+      setMsg({ok:false,text:"Échec : "+(e?.code||e?.message||"erreur inconnue")});
+    }
+    await analyser();
+  }
+  function nettoyerDispos(g){
+    const n=g.vieuxDispos.length;
+    if(!window.confirm(`Supprimer ${n} jour${n>1?"s":""} de disponibilités passé${n>1?"s":""} depuis plus de ${JOURS_DISPOS} jours dans « ${g.nom} » ?`))return;
+    agir(async()=>{
+      for(const j of g.vieuxDispos){
+        for(const u of j.midi)await marquerOccupation(u,j.date,"midi",g.id,null);
+        for(const u of j.soir)await marquerOccupation(u,j.date,"soir",g.id,null);
+        await remove(ref(db,`groupes/${g.id}/availability/${j.date}`));
+      }
+    },`${n} jour${n>1?"s":""} de disponibilités supprimé${n>1?"s":""}.`);
+  }
+  function nettoyerProps(g){
+    const n=g.vieuxProps.length;
+    if(!window.confirm(`Supprimer ${n} proposition${n>1?"s":""} de lieu de plus de ${MOIS_ANCIEN} mois dans « ${g.nom} » (avec leurs votes) ?`))return;
+    agir(async()=>{await Promise.all(g.vieuxProps.map(id=>remove(ref(db,`groupes/${g.id}/proposals/${id}`))));},`${n} proposition${n>1?"s":""} supprimée${n>1?"s":""}.`);
+  }
+  function nettoyerMsgs(g){
+    const n=g.vieuxMsgs.length;
+    if(!window.confirm(`Supprimer ${n} message${n>1?"s":""} du Chat de plus de ${MOIS_ANCIEN} mois dans « ${g.nom} » ?`))return;
+    agir(async()=>{await Promise.all(g.vieuxMsgs.map(id=>remove(ref(db,`groupes/${g.id}/messages/${id}`))));},`${n} message${n>1?"s":""} supprimé${n>1?"s":""}.`);
+  }
+  const pct=etat?Math.min(100,etat.total/LIMITE_GRATUITE*100):0;
+  const couleurJauge=pct>90?t.danger:pct>70?"#f59e0b":t.green;
+  const btnNet=(label,onClick)=>(
+    <button onClick={onClick} disabled={charge} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:FS.sm,cursor:charge?"wait":"pointer",marginTop:6}}>{label}</button>
+  );
+  const lignes=[["📅","Disponibilités","dispos"],["💬","Messages","msgs"],["📍","Propositions","props"],["📖","Sorties","sorties"],["🖼️","Photos","photos"]];
+  return(
+    <div style={{padding:"8px 0 20px"}}>
+      <ACard t={t}>
+        <ALabel t={t}>Volume des données</ALabel>
+        <div style={{color:t.muted,fontSize:FS.sm,marginBottom:8}}>L'analyse lit les données de tous les groupes et peut télécharger quelques Mo. Lance-la de temps en temps, pas en continu.</div>
+        <SaveBtn onClick={()=>{if(!charge){setMsg(null);analyser();}}} t={t} label={charge?"Analyse en cours…":etat?"🔄 Relancer l'analyse":"🔍 Analyser"} saved={false}/>
+        {msg&&<div style={{marginTop:8,color:msg.ok?t.green:t.danger,fontSize:FS.sm}}>{msg.text}</div>}
+      </ACard>
+      {etat&&(
+        <>
+          <ACard t={t}>
+            <ALabel t={t}>Total</ALabel>
+            <div style={{height:10,borderRadius:6,background:t.bg,overflow:"hidden",marginBottom:6}}>
+              <div style={{width:`${Math.max(pct,1)}%`,height:"100%",background:couleurJauge}}/>
+            </div>
+            <div style={{color:t.text,fontSize:FS.sm,fontWeight:600}}>{fmtOctets(etat.total)} utilisés sur 1 Go ({pct.toFixed(1)} %)</div>
+            <div style={{color:t.muted,fontSize:FS.xs,marginTop:4}}>1 Go = limite indicative du plan gratuit de Firebase. Dont photos de profil : {fmtOctets(etat.avatars)} · marques d'occupation : {fmtOctets(etat.occupation)}.</div>
+          </ACard>
+          {etat.groupes.map(g=>(
+            <ACard key={g.id} t={t}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
+                <span style={{color:t.text,fontWeight:700,fontSize:FS.md}}>{g.nom}</span>
+                <span style={{color:t.muted,fontSize:FS.sm}}>{fmtOctets(g.total)}</span>
+              </div>
+              {lignes.map(([ic,lib,cle])=>(
+                <div key={cle} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",fontSize:FS.sm}}>
+                  <span>{ic}</span>
+                  <span style={{color:t.text,flex:1}}>{lib}</span>
+                  <span style={{color:t.muted}}>{g.nb[cle]}</span>
+                  <span style={{color:t.muted,width:64,textAlign:"right"}}>{fmtOctets(g.poids[cle])}</span>
+                </div>
+              ))}
+              {g.vieuxDispos.length>0&&btnNet(`🧹 ${g.vieuxDispos.length} jour${g.vieuxDispos.length>1?"s":""} de disponibilités de plus de ${JOURS_DISPOS} jours`,()=>nettoyerDispos(g))}
+              {g.vieuxProps.length>0&&btnNet(`🧹 ${g.vieuxProps.length} proposition${g.vieuxProps.length>1?"s":""} de plus de ${MOIS_ANCIEN} mois`,()=>nettoyerProps(g))}
+              {g.vieuxMsgs.length>0&&btnNet(`🧹 ${g.vieuxMsgs.length} message${g.vieuxMsgs.length>1?"s":""} de plus de ${MOIS_ANCIEN} mois`,()=>nettoyerMsgs(g))}
+              {g.vieuxDispos.length===0&&g.vieuxProps.length===0&&g.vieuxMsgs.length===0&&<div style={{color:t.green,fontSize:FS.sm,marginTop:6}}>✓ Rien à nettoyer</div>}
+            </ACard>
+          ))}
+        </>
       )}
     </div>
   );
