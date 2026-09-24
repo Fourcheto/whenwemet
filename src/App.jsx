@@ -646,7 +646,6 @@ function FriendsTab({currentUser,gid}){
   const avail=useFirebase(chemin(gid,"availability"),{});
   const profiles=useProfils();
   const presence=useFirebase("presence",{});
-  const sorties=useFirebase(chemin(gid,"sorties"),{});
   const users=Object.keys(usersObj||{});
   const counts={};
   users.forEach(u=>{counts[u]={midi:0,soir:0};});
@@ -657,7 +656,6 @@ function FriendsTab({currentUser,gid}){
     const soir=Array.isArray(day?.soir)?day.soir:[];
     return{date,midi,soir,total:new Set([...midi,...soir]).size};
   }).filter(x=>x.total>1&&x.date>=todayForFriends).sort((a,b)=>b.total-a.total).slice(0,6);
-  const sortieList=Object.entries(sorties||{}).map(([id,s])=>({id,...s})).sort((a,b)=>b.archivedAt-a.archivedAt);
   return(
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
       <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:10,fontFamily:"Syne,sans-serif"}}>🔥 Top dates communes</div>
@@ -686,16 +684,6 @@ function FriendsTab({currentUser,gid}){
         );
       })}
       </div>
-      {sortieList.length>0&&<>
-        <div style={{color:t.text,fontWeight:700,fontSize:16,margin:"18px 0 10px",fontFamily:"Syne,sans-serif"}}>📖 Nos sorties</div>
-        {sortieList.map(s=>(
-          <div key={s.id} style={{padding:"11px 12px",marginBottom:7,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
-            <div style={{color:t.text,fontWeight:600,fontSize:14}}>{s.title}</div>
-            <div style={{color:t.muted,fontSize:12,marginTop:3}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}{s.slot&&` · ${s.slot==="midi"?"🍽 Midi":s.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}`}</div>
-            {s.participants&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{s.participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}</div>}
-          </div>
-        ))}
-      </>}
     </div>
   );
 }
