@@ -2223,7 +2223,7 @@ function AdminSurveillance({t}){
               {lignes.map(([ic,lib,cle])=>(
                 <div key={cle} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",fontSize:FS.sm}}>
                   <span>{ic}</span>
-                  <span style={{color:t.text,flex:1}}>{lib}</span>
+                  <span style={{color:t.text,flex:1,textAlign:"left"}}>{lib}</span>
                   <span style={{color:t.muted}}>{g.nb[cle]}</span>
                   <span style={{color:t.muted,width:64,textAlign:"right"}}>{fmtOctets(g.poids[cle])}</span>
                 </div>
