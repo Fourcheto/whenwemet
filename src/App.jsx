@@ -558,18 +558,44 @@ function CalendarTab({currentUser,gid}){
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
 function ChatTab({currentUser,gid}){
   const[input,setInput]=useState("");
+  const[envoiImage,setEnvoiImage]=useState(false);
+  const[apercu,setApercu]=useState(null);
   const bottomRef=useRef(null);
   const t=C();
   const msgsObj=useFirebase(chemin(gid,"messages"),{});
   const profiles=useProfils();
   const msgs=Object.entries(msgsObj||{}).map(([id,m])=>({id,...m})).sort((a,b)=>a.ts-b.ts);
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]);
+  function heureActuelle(){
+    const now=new Date();
+    return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  }
   async function send(){
     const text=input.trim();if(!text||!gid)return;
-    const now=new Date();
-    const time=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-    await push(ref(db,`groupes/${gid}/messages`),{user:currentUser,text,time,ts:Date.now()});
+    await push(ref(db,`groupes/${gid}/messages`),{user:currentUser,text,time:heureActuelle(),ts:Date.now()});
     setInput("");
+  }
+  async function envoyerImage(file){
+    if(!gid||!file)return;
+    setEnvoiImage(true);
+    try{
+      const data=await compresserImage(file,480,60000);
+      await push(ref(db,`groupes/${gid}/messages`),{user:currentUser,image:data,time:heureActuelle(),ts:Date.now()});
+    }catch{
+      window.alert("Cette image n'a pas pu être envoyée.");
+    }finally{setEnvoiImage(false);}
+  }
+  function onPasteInput(e){
+    const items=e.clipboardData?.items;
+    if(!items)return;
+    for(const item of items){
+      if(item.type&&item.type.startsWith("image/")){
+        e.preventDefault();
+        const file=item.getAsFile();
+        if(file)envoyerImage(file);
+        break;
+      }
+    }
   }
   async function supprimerMessage(msgId){
     if(!gid)return;
@@ -614,7 +640,11 @@ function ChatTab({currentUser,gid}){
                   <Avatar nom={m.user} profiles={profiles} taille={AV.xs} t={t}/>
                   <span style={{color:t.muted,fontSize:FS.xs}}>{m.user}</span>
                 </div>
-                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?t.accent:t.card,color:isMe?"#fff":t.text,fontSize:FS.md,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
+                <div style={{maxWidth:"80%",padding:m.image?4:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?t.accent:t.card,color:isMe?"#fff":t.text,fontSize:FS.md,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>
+                  {m.image
+                    ?<img src={m.image} alt="" onClick={()=>setApercu(m.image)} style={{maxWidth:"100%",maxHeight:220,borderRadius:12,display:"block",cursor:"zoom-in"}}/>
+                    :m.text}
+                </div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:3,justifyContent:isMe?"flex-end":"flex-start"}}>
                   {Object.entries(reactions).filter(([,u])=>u.length>0).map(([emoji,users])=>(
                     <button key={emoji} onClick={()=>addReaction(m.id,emoji)} style={{padding:"2px 7px",borderRadius:12,background:users.includes(currentUser)?`${t.accent}33`:t.card,border:`1px solid ${users.includes(currentUser)?t.accent:t.border}`,cursor:"pointer",fontSize:FS.sm,color:t.text}}>{emoji} {users.length}</button>
@@ -634,10 +664,19 @@ function ChatTab({currentUser,gid}){
         })}
         <div ref={bottomRef}/>
       </div>
-      <div style={{padding:"8px 12px 12px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,background:t.bg,flexShrink:0}}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Message…" style={{flex:1,padding:"11px 14px",borderRadius:24,border:`1px solid ${t.border}`,background:t.card,color:t.text,fontSize:FS.md,outline:"none",minWidth:0}}/>
+      <div style={{padding:"8px 12px 12px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,background:t.bg,flexShrink:0,alignItems:"center"}}>
+        <label title="Envoyer une image" style={{width:40,height:40,borderRadius:"50%",background:t.card,border:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:envoiImage?"wait":"pointer",fontSize:FS.lg}}>
+          {envoiImage?"…":"🖼️"}
+          <input type="file" accept="image/*" disabled={envoiImage} onChange={e=>{const f=e.target.files?.[0];e.target.value="";if(f)envoyerImage(f);}} style={{display:"none"}}/>
+        </label>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} onPaste={onPasteInput} placeholder="Message… (colle aussi tes Bitmoji ici)" style={{flex:1,padding:"11px 14px",borderRadius:24,border:`1px solid ${t.border}`,background:t.card,color:t.text,fontSize:FS.md,outline:"none",minWidth:0}}/>
         <button onClick={send} style={{width:44,height:44,borderRadius:"50%",background:t.accent,border:"none",cursor:"pointer",fontSize:FS.lg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff"}}>↑</button>
       </div>
+      {apercu&&(
+        <div onClick={()=>setApercu(null)} style={{position:"fixed",inset:0,background:"#000000e8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,cursor:"zoom-out"}}>
+          <img src={apercu} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:12}}/>
+        </div>
+      )}
     </div>
   );
 }
