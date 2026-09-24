@@ -5,6 +5,8 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
          signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 
 const auth=getAuth();
+// Echelle typographique unique : 5 tailles de texte + 1 taille d'affichage (grands emojis, compte a rebours)
+const FS={xs:11,sm:13,md:15,lg:18,xl:24,aff:44};
 // Adresse interne derivee du prenom. Jamais affichee, jamais utilisee pour ecrire.
 const emailDe=nom=>`${nom.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,".").replace(/^\.+|\.+$/g,"")}@whenwemet.local`;
 function messageAuth(e){
@@ -97,8 +99,8 @@ function EcranChargement(){
   return(
     <div style={{minHeight:"100vh",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#07070d",gap:14}}>
       <style>{"@keyframes sablier{0%{transform:rotate(0deg)}45%{transform:rotate(0deg)}55%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}"}</style>
-      <div style={{fontSize:40,animation:"sablier 1.6s ease-in-out infinite"}}>⏳</div>
-      <div style={{color:"#8a8aa0",fontSize:12,letterSpacing:2,fontFamily:"Inter,sans-serif"}}>CHARGEMENT…</div>
+      <div style={{fontSize:FS.aff,animation:"sablier 1.6s ease-in-out infinite"}}>⏳</div>
+      <div style={{color:"#8a8aa0",fontSize:FS.sm,letterSpacing:2,fontFamily:"Inter,sans-serif"}}>CHARGEMENT…</div>
     </div>
   );
 }
@@ -117,7 +119,7 @@ function useProfils(){
 }
 
 // ─── Adresse postale : ouvrir dans Maps ou copier ─────────────────────────────
-function AdressePostale({adresse,t,taille=14,couleur}){
+function AdressePostale({adresse,t,taille=FS.md,couleur}){
   const[copie,setCopie]=useState(false);
   if(!adresse)return null;
   const lien=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adresse)}`;
@@ -137,11 +139,11 @@ function AdressePostale({adresse,t,taille=14,couleur}){
     <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
       <a href={lien} target="_blank" rel="noopener noreferrer" title="Ouvrir dans Google Maps"
         style={{display:"flex",alignItems:"flex-start",gap:8,flex:1,minWidth:0,textDecoration:"none"}}>
-        <span style={{fontSize:taille+3,flexShrink:0,lineHeight:1.3}}>📍</span>
+        <span style={{fontSize:taille>=FS.md?FS.lg:FS.md,flexShrink:0,lineHeight:1.3}}>📍</span>
         <span style={{color:couleur||t.accent,fontSize:taille,lineHeight:1.4,overflowWrap:"anywhere",textDecoration:"underline",textUnderlineOffset:3}}>{adresse}</span>
       </a>
       <button onClick={copier} title="Copier l'adresse"
-        style={{flexShrink:0,background:"none",border:`1px solid ${copie?t.green:t.border}`,borderRadius:8,padding:"3px 8px",color:copie?t.green:t.muted,fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>
+        style={{flexShrink:0,background:"none",border:`1px solid ${copie?t.green:t.border}`,borderRadius:8,padding:"3px 8px",color:copie?t.green:t.muted,fontSize:FS.xs,cursor:"pointer",whiteSpace:"nowrap"}}>
         {copie?"✓ Copié":"📋"}
       </button>
     </div>
@@ -202,7 +204,8 @@ button,input,textarea{font-family:inherit}
   padding-bottom:env(safe-area-inset-bottom);
   font-size:15px;
 }
-input,textarea,button{font-size:14px!important}
+input,textarea{font-size:15px!important}
+button{font-size:13px}
 `;
 
 // ─── PwInput ──────────────────────────────────────────────────────────────────
@@ -212,9 +215,9 @@ function PwInput({value,onChange,onEnter,placeholder="Mot de passe",error,t}){
     <div style={{position:"relative"}}>
       <input type={show?"text":"password"} value={value} onChange={onChange}
         onKeyDown={e=>e.key==="Enter"&&onEnter()} placeholder={placeholder}
-        style={{width:"100%",padding:"13px 48px 13px 16px",borderRadius:14,fontSize:15,
+        style={{width:"100%",padding:"13px 48px 13px 16px",borderRadius:14,fontSize:FS.md,
           background:error?`${t.danger}11`:t.card,border:`1px solid ${error?t.danger:t.border}`,color:t.text,outline:"none"}}/>
-      <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:t.muted,fontSize:16,padding:4}}>
+      <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:t.muted,fontSize:FS.md,padding:4}}>
         {show?"🙈":"👁"}
       </button>
     </div>
@@ -236,16 +239,16 @@ function EventBanner({t,currentUser,onNavigate}){
   function markSeen(){if(seenKey&&event){localStorage.setItem(seenKey,(event.validatedAt?.toString()||""));setSeen(true);}}
   return(
     <div onClick={()=>{markSeen();onNavigate&&onNavigate("events");}} style={{animation:"slideDown 0.4s ease",background:`linear-gradient(135deg,${t.accent},${t.green})`,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0,cursor:onNavigate?"pointer":"default"}}>
-      <span style={{fontSize:20}}>{past?"✅":"🎉"}</span>
+      <span style={{fontSize:FS.lg}}>{past?"✅":"🎉"}</span>
       <div style={{flex:1}}>
-        <div style={{color:"#fff",fontWeight:700,fontSize:13}}>{event.title||"Événement confirmé !"}</div>
-        <div style={{color:"#ffffff99",fontSize:11}}>
+        <div style={{color:"#fff",fontWeight:700,fontSize:FS.sm}}>{event.title||"Événement confirmé !"}</div>
+        <div style={{color:"#ffffff99",fontSize:FS.xs}}>
           {eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}
           {!past&&` — dans ${diff} jour${diff>1?"s":""}`}
           {past&&" — événement passé"}
           {event.slot&&` · ${event.slot==="midi"?"🍽 Midi":event.slot==="soir"?"🌙 Soir":"🍽🌙 Les deux"}`}
         </div>
-        {event.message&&<div style={{color:"#ffffffCC",fontSize:11,marginTop:2,fontStyle:"italic"}}>"{event.message}"</div>}
+        {event.message&&<div style={{color:"#ffffffCC",fontSize:FS.xs,marginTop:2,fontStyle:"italic"}}>"{event.message}"</div>}
       </div>
       {isNew&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff",animation:"pulse 1.5s infinite",flexShrink:0}}/>}
     </div>
@@ -313,8 +316,8 @@ function SplashScreen({onEnter}){
     onEnter("user",name);
   }
   const stars=Array.from({length:28},(_,i)=>({x:(i*37+11)%100,y:(i*53+7)%100,r:0.8+(i%3)*0.6,o:0.2+(i%4)*0.15}));
-  const bigBtn={padding:"14px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",width:"100%"};
-  const backBtn={background:"none",border:"none",color:t.muted,fontSize:13,cursor:"pointer",padding:"4px"};
+  const bigBtn={padding:"14px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,color:"#fff",fontWeight:700,fontSize:FS.md,cursor:"pointer",width:"100%"};
+  const backBtn={background:"none",border:"none",color:t.muted,fontSize:FS.sm,cursor:"pointer",padding:"4px"};
   if(!pret)return <EcranChargement/>;
   return(
     <div style={{minHeight:"100vh",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%,#1a1640 0%,${t.bg} 70%)`,position:"relative",overflow:"hidden",opacity:fadeIn?1:0,transition:"opacity 0.6s ease",paddingTop:"env(safe-area-inset-top)"}}>
@@ -325,30 +328,30 @@ function SplashScreen({onEnter}){
       <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:260,height:260,borderRadius:"50%",background:`radial-gradient(circle,${t.accent}22 0%,transparent 70%)`,pointerEvents:"none"}}/>
       <div style={{textAlign:"center",zIndex:1,padding:"0 28px",maxWidth:400,width:"100%"}}>
         <div style={{animation:"float 4s ease-in-out infinite",marginBottom:18}}>
-          <div style={{width:64,height:64,borderRadius:20,margin:"0 auto",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,boxShadow:`0 0 40px ${t.accent}55`}}>📅</div>
+          <div style={{width:64,height:64,borderRadius:20,margin:"0 auto",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:FS.aff,boxShadow:`0 0 40px ${t.accent}55`}}>📅</div>
         </div>
-        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:30,lineHeight:1.15,letterSpacing:-1,marginBottom:6}}>
+        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:FS.xl,lineHeight:1.15,letterSpacing:-1,marginBottom:6}}>
           {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
         </div>
-        <div style={{color:t.muted,fontSize:14,marginBottom:20}}>{appSub}</div>
+        <div style={{color:t.muted,fontSize:FS.md,marginBottom:20}}>{appSub}</div>
 
         {phase==="title"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{color:t.muted,fontSize:12,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Choisissez votre accès</div>
+            <div style={{color:t.muted,fontSize:FS.sm,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Choisissez votre accès</div>
             <div className="liste-acces" style={{background:`${t.card}CC`,border:`1px solid ${t.border}`,borderRadius:18,padding:"4px",maxHeight:"min(48vh,460px)",overflowY:"auto"}}>
-              {userList.length===0&&<div style={{color:t.muted,fontSize:13,padding:"16px"}}>Aucun membre pour l'instant — contacte l'administrateur.</div>}
+              {userList.length===0&&<div style={{color:t.muted,fontSize:FS.sm,padding:"16px"}}>Aucun membre pour l'instant — contacte l'administrateur.</div>}
               {userList.map((u,i)=>{
                 const col=(profiles||{})[u]?.color||AVATAR_COLORS[0];
                 return(
                   <button key={u} onClick={()=>openLogin(u)} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"11px 14px",background:"none",border:"none",borderRadius:14,cursor:"pointer",borderBottom:i<userList.length-1?`1px solid ${t.border}44`:"none"}}>
                     <Avatar nom={u} profiles={profilsAvecPhoto} taille={AV.md} t={t}/>
-                    <span style={{color:t.text,fontWeight:600,fontSize:15}}>{u}</span>
-                    <span style={{marginLeft:"auto",color:t.muted,fontSize:18}}>›</span>
+                    <span style={{color:t.text,fontWeight:600,fontSize:FS.md}}>{u}</span>
+                    <span style={{marginLeft:"auto",color:t.muted,fontSize:FS.lg}}>›</span>
                   </button>
                 );
               })}
             </div>
-            <button onClick={()=>{setPhase("admin-pin");setAdminPw("");}} style={{padding:"11px",borderRadius:14,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:13,cursor:"pointer"}}>
+            <button onClick={()=>{setPhase("admin-pin");setAdminPw("");}} style={{padding:"11px",borderRadius:14,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:FS.sm,cursor:"pointer"}}>
               ⚙️  Accès administrateur
             </button>
           </div>
@@ -359,9 +362,9 @@ function SplashScreen({onEnter}){
             <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
               <Avatar nom={loginUser} profiles={profilsAvecPhoto} taille={AV.xxl} t={t}/>
             </div>
-            <div style={{color:t.text,fontWeight:700,fontSize:18,fontFamily:"Syne,sans-serif"}}>Bonjour, {loginUser} !</div>
+            <div style={{color:t.text,fontWeight:700,fontSize:FS.lg,fontFamily:"Syne,sans-serif"}}>Bonjour, {loginUser} !</div>
             <PwInput value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr("");}} onEnter={tryLogin} error={!!loginErr} t={t}/>
-            {loginErr&&<div style={{color:t.danger,fontSize:13,animation:"shake 0.4s ease"}}>{loginErr}</div>}
+            {loginErr&&<div style={{color:t.danger,fontSize:FS.sm,animation:"shake 0.4s ease"}}>{loginErr}</div>}
             <button onClick={tryLogin} style={bigBtn}>Se connecter 🔓</button>
             <button onClick={()=>setPhase("title")} style={backBtn}>← Retour</button>
           </div>
@@ -370,17 +373,17 @@ function SplashScreen({onEnter}){
         {phase==="new-user"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
-              <div style={{width:64,height:64,borderRadius:"50%",background:newColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:"#fff",transition:"all 0.3s"}}>{newName.trim()?newName.trim()[0].toUpperCase():"?"}</div>
+              <div style={{width:64,height:64,borderRadius:"50%",background:newColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:FS.xl,fontWeight:800,color:"#fff",transition:"all 0.3s"}}>{newName.trim()?newName.trim()[0].toUpperCase():"?"}</div>
             </div>
-            <div style={{color:t.text,fontWeight:700,fontSize:18,fontFamily:"Syne,sans-serif"}}>Créer mon profil</div>
-            <input autoFocus value={newName} onChange={e=>{setNewName(e.target.value);setNewError("");}} placeholder="Ton prénom ou pseudo…" maxLength={20} style={{width:"100%",padding:"13px 16px",borderRadius:14,fontSize:15,background:t.card,border:`1px solid ${t.border}`,color:t.text,outline:"none"}}/>
-            <div style={{color:t.muted,fontSize:12}}>Couleur de ton avatar</div>
+            <div style={{color:t.text,fontWeight:700,fontSize:FS.lg,fontFamily:"Syne,sans-serif"}}>Créer mon profil</div>
+            <input autoFocus value={newName} onChange={e=>{setNewName(e.target.value);setNewError("");}} placeholder="Ton prénom ou pseudo…" maxLength={20} style={{width:"100%",padding:"13px 16px",borderRadius:14,fontSize:FS.md,background:t.card,border:`1px solid ${t.border}`,color:t.text,outline:"none"}}/>
+            <div style={{color:t.muted,fontSize:FS.sm}}>Couleur de ton avatar</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
               {AVATAR_COLORS.map(col=><button key={col} onClick={()=>setNewColor(col)} style={{width:32,height:32,borderRadius:"50%",background:col,border:newColor===col?"3px solid #fff":"3px solid transparent",cursor:"pointer",transition:"transform 0.15s",transform:newColor===col?"scale(1.2)":"scale(1)"}}/>)}
             </div>
             <PwInput value={newPw} onChange={e=>{setNewPw(e.target.value);setNewError("");}} onEnter={createProfile} placeholder="Choisis un mot de passe" error={!!newError&&!!newName.trim()} t={t}/>
             <PwInput value={newPwC} onChange={e=>{setNewPwC(e.target.value);setNewError("");}} onEnter={createProfile} placeholder="Répète le mot de passe" error={!!newError&&newPw!==newPwC} t={t}/>
-            {newError&&<div style={{color:t.danger,fontSize:13,animation:"shake 0.4s ease"}}>{newError}</div>}
+            {newError&&<div style={{color:t.danger,fontSize:FS.sm,animation:"shake 0.4s ease"}}>{newError}</div>}
             <button onClick={createProfile} style={{...bigBtn,opacity:newName.trim().length>=2&&newPw?1:0.5}}>Rejoindre le groupe 🎉</button>
             <button onClick={()=>setPhase("title")} style={backBtn}>← Retour</button>
           </div>
@@ -388,9 +391,9 @@ function SplashScreen({onEnter}){
 
         {phase==="admin-pin"&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <div style={{color:t.text,fontWeight:700,fontSize:17,fontFamily:"Syne,sans-serif"}}>Zone administrateur</div>
+            <div style={{color:t.text,fontWeight:700,fontSize:FS.lg,fontFamily:"Syne,sans-serif"}}>Zone administrateur</div>
             <PwInput value={adminPw} onChange={e=>setAdminPw(e.target.value)} onEnter={tryAdmin} placeholder="Mot de passe admin" error={adminErr} t={t}/>
-            {adminErr&&<div style={{color:t.danger,fontSize:13,animation:"shake 0.4s ease"}}>Mot de passe incorrect</div>}
+            {adminErr&&<div style={{color:t.danger,fontSize:FS.sm,animation:"shake 0.4s ease"}}>Mot de passe incorrect</div>}
             <button onClick={tryAdmin} style={bigBtn}>Entrer</button>
             <button onClick={()=>setPhase("title")} style={backBtn}>← Retour</button>
           </div>
@@ -455,30 +458,30 @@ function CalendarTab({currentUser,gid}){
     <div style={{padding:"0 0 16px",overflowX:"hidden"}}>
       {perfectDates.length>0&&(
         <div style={{margin:"10px 12px",padding:"12px 14px",background:`${t.green}15`,border:`1px solid ${t.green}55`,borderRadius:14,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:24}}>🎉</span>
+          <span style={{fontSize:FS.xl}}>🎉</span>
           <div>
-            <div style={{color:t.green,fontWeight:700,fontSize:13}}>Date parfaite trouvée !</div>
-            <div style={{color:t.text,fontSize:12}}>Tout le monde est dispo le {new Date(perfectDates[0]+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}</div>
+            <div style={{color:t.green,fontWeight:700,fontSize:FS.sm}}>Date parfaite trouvée !</div>
+            <div style={{color:t.text,fontSize:FS.sm}}>Tout le monde est dispo le {new Date(perfectDates[0]+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}</div>
           </div>
         </div>
       )}
       {bestDate&&bestCount>1&&!perfectDates.includes(bestDate)&&(
         <div style={{margin:"10px 12px",padding:"12px 14px",background:`${t.green}11`,border:`1px solid ${t.green}44`,borderRadius:14,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:20}}>🏆</span>
+          <span style={{fontSize:FS.lg}}>🏆</span>
           <div>
-            <div style={{color:t.green,fontWeight:700,fontSize:12}}>Meilleure date ce mois</div>
-            <div style={{color:t.text,fontSize:14,fontWeight:600}}>{new Date(bestDate+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
-            <div style={{color:t.muted,fontSize:11}}>{bestCount} personne{bestCount>1?"s":""} disponible{bestCount>1?"s":""}</div>
+            <div style={{color:t.green,fontWeight:700,fontSize:FS.sm}}>Meilleure date ce mois</div>
+            <div style={{color:t.text,fontSize:FS.md,fontWeight:600}}>{new Date(bestDate+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
+            <div style={{color:t.muted,fontSize:FS.xs}}>{bestCount} personne{bestCount>1?"s":""} disponible{bestCount>1?"s":""}</div>
           </div>
         </div>
       )}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 16px 4px"}}>
-        <button onClick={prevM} disabled={isBeforeNow(year,month)} style={{background:"none",border:"none",cursor:"pointer",color:isBeforeNow(year,month)?t.border:t.muted,fontSize:24,padding:"4px 10px"}}>‹</button>
-        <span style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Syne,sans-serif"}}>{MONTHS[month]} {year}</span>
-        <button onClick={nextM} disabled={isAfterMax(month===11?year+1:year,(month+1)%12)} style={{background:"none",border:"none",cursor:"pointer",color:isAfterMax(month===11?year+1:year,(month+1)%12)?t.border:t.muted,fontSize:24,padding:"4px 10px"}}>›</button>
+        <button onClick={prevM} disabled={isBeforeNow(year,month)} style={{background:"none",border:"none",cursor:"pointer",color:isBeforeNow(year,month)?t.border:t.muted,fontSize:FS.xl,padding:"4px 10px"}}>‹</button>
+        <span style={{color:t.text,fontWeight:700,fontSize:FS.md,fontFamily:"Syne,sans-serif"}}>{MONTHS[month]} {year}</span>
+        <button onClick={nextM} disabled={isAfterMax(month===11?year+1:year,(month+1)%12)} style={{background:"none",border:"none",cursor:"pointer",color:isAfterMax(month===11?year+1:year,(month+1)%12)?t.border:t.muted,fontSize:FS.xl,padding:"4px 10px"}}>›</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"6px 10px 2px",gap:2}}>
-        {DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:11,fontWeight:600}}>{d}</div>)}
+        {DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:FS.xs,fontWeight:600}}>{d}</div>)}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"0 10px",gap:3}}>
         {Array(first).fill(null).map((_,i)=><div key={"e"+i}/>)}
@@ -499,36 +502,36 @@ function CalendarTab({currentUser,gid}){
                 background:past?t.bg+"44":isPerfect?t.green+"33":heatColor(count,Math.max(users.length,1),t),
                 cursor:past?"not-allowed":"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
                 position:"relative",opacity:past?0.3:1,transition:"all 0.15s"}}>
-              <span style={{color:past?t.muted:count>0?t.text:t.muted,fontSize:12,fontWeight:isToday?800:500}}>{d}</span>
-              {count>0&&!past&&<span style={{fontSize:8,color:isPerfect?t.green:t.accentLight,fontWeight:700}}>{count}/{users.length}</span>}
+              <span style={{color:past?t.muted:count>0?t.text:t.muted,fontSize:FS.sm,fontWeight:isToday?800:500}}>{d}</span>
+              {count>0&&!past&&<span style={{fontSize:FS.xs,color:isPerfect?t.green:t.accentLight,fontWeight:700}}>{count}/{users.length}</span>}
               {isMe&&!past&&<span style={{position:"absolute",top:2,right:2,width:5,height:5,borderRadius:"50%",background:t.green}}/>}
-              {midi.length>0&&soir.length>0&&!past&&<span style={{fontSize:7,position:"absolute",bottom:1}}>🌓</span>}
-              {!past&&[...ailleurs(occupation,ds,"midi",gid),...ailleurs(occupation,ds,"soir",gid)].some(c=>c.statut==="confirme")&&<span style={{position:"absolute",top:2,left:2,fontSize:12}}>🔒</span>}
+              {midi.length>0&&soir.length>0&&!past&&<span style={{fontSize:FS.xs,position:"absolute",bottom:1}}>🌓</span>}
+              {!past&&[...ailleurs(occupation,ds,"midi",gid),...ailleurs(occupation,ds,"soir",gid)].some(c=>c.statut==="confirme")&&<span style={{position:"absolute",top:2,left:2,fontSize:FS.sm}}>🔒</span>}
             </button>
           );
         })}
       </div>
       <div style={{display:"flex",gap:8,padding:"10px 12px 4px",flexWrap:"wrap"}}>
         {[{c:t.accent+"44",l:"Peu"},{c:t.accent+"88",l:"Quelques"},{c:t.accent,l:"Beaucoup"},{c:t.green,l:"Tous !"}].map(({c,l})=>(
-          <div key={l} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:3,background:c}}/><span style={{color:t.muted,fontSize:10}}>{l}</span></div>
+          <div key={l} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:3,background:c}}/><span style={{color:t.muted,fontSize:FS.xs}}>{l}</span></div>
         ))}
-        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:t.green}}/><span style={{color:t.muted,fontSize:10}}>Vous</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:t.green}}/><span style={{color:t.muted,fontSize:FS.xs}}>Vous</span></div>
       </div>
       {selected&&!isPast(parseInt(selected.split("-")[2]))&&(
         <div style={{margin:"10px 12px 0",padding:"14px",background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
-          <div style={{color:t.text,fontWeight:700,marginBottom:12,fontSize:14}}>{new Date(selected+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
+          <div style={{color:t.text,fontWeight:700,marginBottom:12,fontSize:FS.md}}>{new Date(selected+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
           <div style={{display:"flex",gap:10,marginBottom:12}}>
-            <button onClick={()=>toggleSlot(selected,"midi")} style={{flex:1,padding:"10px",borderRadius:12,background:isMidi?`${t.accent}33`:t.bg,border:`2px solid ${isMidi?t.accent:t.border}`,color:isMidi?t.accent:t.muted,fontSize:13,fontWeight:700,cursor:"pointer"}}>🍽 Midi {isMidi&&"✓"}</button>
-            <button onClick={()=>toggleSlot(selected,"soir")} style={{flex:1,padding:"10px",borderRadius:12,background:isSoir?`${t.green}22`:t.bg,border:`2px solid ${isSoir?t.green:t.border}`,color:isSoir?t.green:t.muted,fontSize:13,fontWeight:700,cursor:"pointer"}}>🌙 Soir {isSoir&&"✓"}</button>
+            <button onClick={()=>toggleSlot(selected,"midi")} style={{flex:1,padding:"10px",borderRadius:12,background:isMidi?`${t.accent}33`:t.bg,border:`2px solid ${isMidi?t.accent:t.border}`,color:isMidi?t.accent:t.muted,fontSize:FS.sm,fontWeight:700,cursor:"pointer"}}>🍽 Midi {isMidi&&"✓"}</button>
+            <button onClick={()=>toggleSlot(selected,"soir")} style={{flex:1,padding:"10px",borderRadius:12,background:isSoir?`${t.green}22`:t.bg,border:`2px solid ${isSoir?t.green:t.border}`,color:isSoir?t.green:t.muted,fontSize:FS.sm,fontWeight:700,cursor:"pointer"}}>🌙 Soir {isSoir&&"✓"}</button>
           </div>
           {["midi","soir"].map(slot=>{
             const people=selSlots[slot];
             if(!people.length)return null;
             return(
               <div key={slot} style={{marginBottom:8}}>
-                <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:4}}>{slot==="midi"?"🍽 Midi":"🌙 Soir"}</div>
+                <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,marginBottom:4}}>{slot==="midi"?"🍽 Midi":"🌙 Soir"}</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {people.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:p===currentUser?`${t.green}22`:`${t.accent}22`,color:p===currentUser?t.green:t.accentLight,fontSize:11,fontWeight:600}}>{p}</span>)}
+                  {people.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:p===currentUser?`${t.green}22`:`${t.accent}22`,color:p===currentUser?t.green:t.accentLight,fontSize:FS.xs,fontWeight:600}}>{p}</span>)}
                 </div>
               </div>
             );
@@ -540,12 +543,12 @@ function CalendarTab({currentUser,gid}){
             const nomG=((groupes||{})[c.gid]||{}).nom||c.gid;
             return(
               <div key={`occ-${slot}`} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",marginBottom:6,background:`${t.danger}15`,border:`1px solid ${t.danger}44`,borderRadius:10}}>
-                <span style={{fontSize:13}}>🔒</span>
-                <span style={{color:t.danger,fontSize:11,fontWeight:600}}>{slot==="midi"?"Midi":"Soir"} : engagé avec « {nomG} »{c.titre?` pour « ${c.titre} »`:""}</span>
+                <span style={{fontSize:FS.sm}}>🔒</span>
+                <span style={{color:t.danger,fontSize:FS.xs,fontWeight:600}}>{slot==="midi"?"Midi":"Soir"} : engagé avec « {nomG} »{c.titre?` pour « ${c.titre} »`:""}</span>
               </div>
             );
           })}
-          <div style={{color:t.muted,fontSize:11,marginTop:6}}>Appuie sur Midi ou Soir pour basculer ta dispo</div>
+          <div style={{color:t.muted,fontSize:FS.xs,marginTop:6}}>Appuie sur Midi ou Soir pour basculer ta dispo</div>
         </div>
       )}
     </div>
@@ -603,27 +606,27 @@ function ChatTab({currentUser,gid}){
             <div key={m.id}>
               {needsSep(idx)&&(
                 <div style={{textAlign:"center",margin:"12px 0 8px"}}>
-                  <span style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:"4px 14px",color:t.muted,fontSize:11,fontWeight:600}}>{formatFullDate(m.ts)}</span>
+                  <span style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:"4px 14px",color:t.muted,fontSize:FS.xs,fontWeight:600}}>{formatFullDate(m.ts)}</span>
                 </div>
               )}
               <div style={{display:"flex",flexDirection:"column",alignItems:isMe?"flex-end":"flex-start"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,marginLeft:4,marginRight:4,flexDirection:isMe?"row-reverse":"row"}}>
                   <Avatar nom={m.user} profiles={profiles} taille={AV.xs} t={t}/>
-                  <span style={{color:t.muted,fontSize:11}}>{m.user}</span>
+                  <span style={{color:t.muted,fontSize:FS.xs}}>{m.user}</span>
                 </div>
-                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?t.accent:t.card,color:isMe?"#fff":t.text,fontSize:14,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
+                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?t.accent:t.card,color:isMe?"#fff":t.text,fontSize:FS.md,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:3,justifyContent:isMe?"flex-end":"flex-start"}}>
                   {Object.entries(reactions).filter(([,u])=>u.length>0).map(([emoji,users])=>(
-                    <button key={emoji} onClick={()=>addReaction(m.id,emoji)} style={{padding:"2px 7px",borderRadius:12,background:users.includes(currentUser)?`${t.accent}33`:t.card,border:`1px solid ${users.includes(currentUser)?t.accent:t.border}`,cursor:"pointer",fontSize:12,color:t.text}}>{emoji} {users.length}</button>
+                    <button key={emoji} onClick={()=>addReaction(m.id,emoji)} style={{padding:"2px 7px",borderRadius:12,background:users.includes(currentUser)?`${t.accent}33`:t.card,border:`1px solid ${users.includes(currentUser)?t.accent:t.border}`,cursor:"pointer",fontSize:FS.sm,color:t.text}}>{emoji} {users.length}</button>
                   ))}
-                  <button onClick={()=>{const el=document.getElementById(`r-${m.id}`);el.style.display=el.style.display==="none"?"flex":"none";}} style={{padding:"2px 6px",borderRadius:12,background:"none",border:`1px solid ${t.border}33`,cursor:"pointer",fontSize:11,color:t.muted}}>＋</button>
+                  <button onClick={()=>{const el=document.getElementById(`r-${m.id}`);el.style.display=el.style.display==="none"?"flex":"none";}} style={{padding:"2px 6px",borderRadius:12,background:"none",border:`1px solid ${t.border}33`,cursor:"pointer",fontSize:FS.xs,color:t.muted}}>＋</button>
                 </div>
                 <div id={`r-${m.id}`} style={{display:"none",gap:4,marginTop:3,flexWrap:"wrap",justifyContent:isMe?"flex-end":"flex-start"}}>
-                  {EMOJI_REACTIONS.map(e=><button key={e} onClick={()=>{addReaction(m.id,e);document.getElementById(`r-${m.id}`).style.display="none";}} style={{fontSize:16,padding:"2px 4px",background:"none",border:"none",cursor:"pointer"}}>{e}</button>)}
+                  {EMOJI_REACTIONS.map(e=><button key={e} onClick={()=>{addReaction(m.id,e);document.getElementById(`r-${m.id}`).style.display="none";}} style={{fontSize:FS.md,padding:"2px 4px",background:"none",border:"none",cursor:"pointer"}}>{e}</button>)}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,marginLeft:4,marginRight:4}}>
-                  <span style={{color:t.muted,fontSize:10}}>{m.time}</span>
-                  {isMe&&<button onClick={()=>supprimerMessage(m.id)} title="Supprimer ce message" style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:0,lineHeight:1,opacity:0.7}}>🗑</button>}
+                  <span style={{color:t.muted,fontSize:FS.xs}}>{m.time}</span>
+                  {isMe&&<button onClick={()=>supprimerMessage(m.id)} title="Supprimer ce message" style={{background:"none",border:"none",cursor:"pointer",fontSize:FS.sm,padding:0,lineHeight:1,opacity:0.7}}>🗑</button>}
                 </div>
               </div>
             </div>
@@ -632,8 +635,8 @@ function ChatTab({currentUser,gid}){
         <div ref={bottomRef}/>
       </div>
       <div style={{padding:"8px 12px 12px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,background:t.bg,flexShrink:0}}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Message…" style={{flex:1,padding:"11px 14px",borderRadius:24,border:`1px solid ${t.border}`,background:t.card,color:t.text,fontSize:14,outline:"none",minWidth:0}}/>
-        <button onClick={send} style={{width:44,height:44,borderRadius:"50%",background:t.accent,border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff"}}>↑</button>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Message…" style={{flex:1,padding:"11px 14px",borderRadius:24,border:`1px solid ${t.border}`,background:t.card,color:t.text,fontSize:FS.md,outline:"none",minWidth:0}}/>
+        <button onClick={send} style={{width:44,height:44,borderRadius:"50%",background:t.accent,border:"none",cursor:"pointer",fontSize:FS.lg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff"}}>↑</button>
       </div>
     </div>
   );
@@ -658,20 +661,20 @@ function FriendsTab({currentUser,gid}){
   }).filter(x=>x.total>1&&x.date>=todayForFriends).sort((a,b)=>b.total-a.total).slice(0,6);
   return(
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
-      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:10,fontFamily:"Syne,sans-serif"}}>🔥 Top dates communes</div>
-      {shared.length===0?<div style={{color:t.muted,fontSize:13,marginBottom:16}}>Pas encore de dates communes !</div>
+      <div style={{color:t.text,fontWeight:700,fontSize:FS.md,marginBottom:10,fontFamily:"Syne,sans-serif"}}>🔥 Top dates communes</div>
+      {shared.length===0?<div style={{color:t.muted,fontSize:FS.sm,marginBottom:16}}>Pas encore de dates communes !</div>
         :shared.map(({date,midi,soir,total})=>(
           <div key={date} style={{padding:"11px 12px",marginBottom:7,background:t.card,borderRadius:14,border:`1px solid ${total===users.length?t.green+"66":t.border}`}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <span style={{color:t.text,fontWeight:600,fontSize:14}}>{new Date(date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
-              <span style={{padding:"2px 9px",borderRadius:20,background:total===users.length?`${t.green}22`:`${t.accent}22`,color:total===users.length?t.green:t.accentLight,fontSize:11,fontWeight:700}}>{total}/{users.length}</span>
+              <span style={{color:t.text,fontWeight:600,fontSize:FS.md}}>{new Date(date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
+              <span style={{padding:"2px 9px",borderRadius:20,background:total===users.length?`${t.green}22`:`${t.accent}22`,color:total===users.length?t.green:t.accentLight,fontSize:FS.xs,fontWeight:700}}>{total}/{users.length}</span>
             </div>
-            {midi.length>0&&<div style={{marginBottom:5}}><span style={{color:t.muted,fontSize:11,fontWeight:600}}>🍽 Midi : </span>{midi.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11,marginRight:3}}>{p}</span>)}</div>}
-            {soir.length>0&&<div><span style={{color:t.muted,fontSize:11,fontWeight:600}}>🌙 Soir : </span>{soir.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.green}15`,color:t.muted,fontSize:11,marginRight:3}}>{p}</span>)}</div>}
+            {midi.length>0&&<div style={{marginBottom:5}}><span style={{color:t.muted,fontSize:FS.xs,fontWeight:600}}>🍽 Midi : </span>{midi.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:FS.xs,marginRight:3}}>{p}</span>)}</div>}
+            {soir.length>0&&<div><span style={{color:t.muted,fontSize:FS.xs,fontWeight:600}}>🌙 Soir : </span>{soir.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.green}15`,color:t.muted,fontSize:FS.xs,marginRight:3}}>{p}</span>)}</div>}
           </div>
         ))
       }
-      <div style={{color:t.text,fontWeight:700,fontSize:16,margin:"18px 0 10px",fontFamily:"Syne,sans-serif"}}>👥 Membres du groupe</div>
+      <div style={{color:t.text,fontWeight:700,fontSize:FS.md,margin:"18px 0 10px",fontFamily:"Syne,sans-serif"}}>👥 Membres du groupe</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
       {users.map(u=>{
         const col=(profiles||{})[u]?.color||t.accent;
@@ -679,7 +682,7 @@ function FriendsTab({currentUser,gid}){
         return(
           <div key={u} style={{padding:"10px",background:t.card,borderRadius:14,border:`1px solid ${u===currentUser?t.accent+"66":t.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:6,position:"relative"}}>
             <Avatar nom={u} profiles={profiles} taille={AV.xl} online={online} t={t}/>
-            <div style={{color:t.text,fontWeight:600,fontSize:13,textAlign:"center"}}>{u}{u===currentUser&&<span style={{color:t.accent,fontSize:10,display:"block"}}>(vous)</span>}</div>
+            <div style={{color:t.text,fontWeight:600,fontSize:FS.sm,textAlign:"center"}}>{u}{u===currentUser&&<span style={{color:t.accent,fontSize:FS.xs,display:"block"}}>(vous)</span>}</div>
           </div>
         );
       })}
@@ -706,7 +709,7 @@ async function compresserImage(fichier,maxPx=1280,cible=160000){
   }finally{URL.revokeObjectURL(url);}
 }
 
-function Etoiles({note,couleur,taille=14}){
+function Etoiles({note,couleur,taille=FS.md}){
   return(
     <span style={{whiteSpace:"nowrap",letterSpacing:1}}>
       {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:taille,color:n<=note?couleur:"#88888844"}}>★</span>)}
@@ -720,10 +723,10 @@ function ChoixEtoiles({note,onChange,couleur,t}){
       <div style={{display:"flex",gap:1}}>
         {[1,2,3,4,5].map(n=>(
           <button key={n} onClick={()=>onChange(note===n?0:n)} title={`${n} étoile${n>1?"s":""}`}
-            style={{background:"none",border:"none",padding:"2px",cursor:"pointer",fontSize:26,lineHeight:1,color:n<=note?couleur:"#88888844"}}>★</button>
+            style={{background:"none",border:"none",padding:"2px",cursor:"pointer",fontSize:FS.xl,lineHeight:1,color:n<=note?couleur:"#88888844"}}>★</button>
         ))}
       </div>
-      <span style={{color:t.muted,fontSize:11}}>{note>0?`${note}/5`:"Pas de note (facultatif)"}</span>
+      <span style={{color:t.muted,fontSize:FS.xs}}>{note>0?`${note}/5`:"Pas de note (facultatif)"}</span>
     </div>
   );
 }
@@ -802,11 +805,11 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
     <div style={{padding:"14px",marginBottom:10,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:4,overflowWrap:"anywhere"}}>{s.title}</div>
-          <div style={{color:t.muted,fontSize:12,marginBottom:6}}>{dateTexte}{creneau&&` · ${creneau}`}</div>
+          <div style={{color:t.text,fontWeight:700,fontSize:FS.md,marginBottom:4,overflowWrap:"anywhere"}}>{s.title}</div>
+          <div style={{color:t.muted,fontSize:FS.sm,marginBottom:6}}>{dateTexte}{creneau&&` · ${creneau}`}</div>
         </div>
         {isAdmin&&onSupprimer&&(
-          <button onClick={onSupprimer} title="Supprimer la sortie" style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
+          <button onClick={onSupprimer} title="Supprimer la sortie" style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:FS.sm,cursor:"pointer",flexShrink:0}}>✕</button>
         )}
       </div>
 
@@ -815,22 +818,22 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
           {notes.length>0&&(
             <span style={{display:"inline-flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:20,background:`${t.accent}18`}}>
               <Etoiles note={Math.round(moyenne)} couleur={t.accent}/>
-              <span style={{color:t.text,fontSize:12,fontWeight:700}}>{moyenne.toFixed(1).replace(".",",")}</span>
-              <span style={{color:t.muted,fontSize:11}}>/5</span>
+              <span style={{color:t.text,fontSize:FS.sm,fontWeight:700}}>{moyenne.toFixed(1).replace(".",",")}</span>
+              <span style={{color:t.muted,fontSize:FS.xs}}>/5</span>
             </span>
           )}
-          {listeAvis.length>0&&<span style={{color:t.muted,fontSize:11}}>💬 {listeAvis.length} avis</span>}
-          {nbPhotos>0&&<span style={{color:t.muted,fontSize:11}}>📷 {nbPhotos} photo{nbPhotos>1?"s":""}</span>}
+          {listeAvis.length>0&&<span style={{color:t.muted,fontSize:FS.xs}}>💬 {listeAvis.length} avis</span>}
+          {nbPhotos>0&&<span style={{color:t.muted,fontSize:FS.xs}}>📷 {nbPhotos} photo{nbPhotos>1?"s":""}</span>}
         </div>
       )}
 
       {participants.length>0&&(
         <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
-          {participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}
+          {participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:FS.xs}}>{p}</span>)}
         </div>
       )}
 
-      <button onClick={()=>setOuvert(o=>!o)} style={{width:"100%",padding:"8px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+      <button onClick={()=>setOuvert(o=>!o)} style={{width:"100%",padding:"8px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:FS.sm,fontWeight:600,cursor:"pointer"}}>
         {ouvert?"Masquer les souvenirs":"📷 Photos et avis"}
       </button>
 
@@ -839,12 +842,12 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
           {isAdmin&&(
             <div style={{marginBottom:12}}>
               {listePhotos.length<MAX_PHOTOS?(
-                <label style={{display:"block",padding:"9px",borderRadius:10,background:`${t.accent}18`,border:`1px dashed ${t.accent}66`,color:t.accent,fontSize:12,fontWeight:600,textAlign:"center",cursor:envoi?"wait":"pointer"}}>
+                <label style={{display:"block",padding:"9px",borderRadius:10,background:`${t.accent}18`,border:`1px dashed ${t.accent}66`,color:t.accent,fontSize:FS.sm,fontWeight:600,textAlign:"center",cursor:envoi?"wait":"pointer"}}>
                   {envoi?"Envoi en cours…":`➕ Ajouter des photos (${listePhotos.length}/${MAX_PHOTOS})`}
                   <input type="file" accept="image/*" multiple disabled={envoi} onChange={ajouterPhotos} style={{display:"none"}}/>
                 </label>
               ):(
-                <div style={{color:t.muted,fontSize:11,textAlign:"center"}}>Maximum de {MAX_PHOTOS} photos atteint.</div>
+                <div style={{color:t.muted,fontSize:FS.xs,textAlign:"center"}}>Maximum de {MAX_PHOTOS} photos atteint.</div>
               )}
             </div>
           )}
@@ -855,62 +858,62 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
                 <div key={ph.id} style={{position:"relative",paddingTop:"100%",borderRadius:10,overflow:"hidden",background:t.bg}}>
                   <img src={ph.data} alt="" onClick={()=>setApercu(ph.data)} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",cursor:"zoom-in"}}/>
                   {isAdmin&&(
-                    <button onClick={()=>supprimerPhoto(ph.id)} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"#000000aa",border:"none",color:"#fff",fontSize:12,cursor:"pointer",lineHeight:1}}>✕</button>
+                    <button onClick={()=>supprimerPhoto(ph.id)} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"#000000aa",border:"none",color:"#fff",fontSize:FS.sm,cursor:"pointer",lineHeight:1}}>✕</button>
                   )}
                 </div>
               ))}
             </div>
           )}
 
-          <div style={{color:t.muted,fontSize:11,fontWeight:700,marginBottom:8}}>💬 LES AVIS</div>
+          <div style={{color:t.muted,fontSize:FS.xs,fontWeight:700,marginBottom:8}}>💬 LES AVIS</div>
 
           {listeAvis.length===0&&!edition&&(
-            <div style={{color:t.muted,fontSize:12,marginBottom:10}}>Aucun avis pour l'instant.</div>
+            <div style={{color:t.muted,fontSize:FS.sm,marginBottom:10}}>Aucun avis pour l'instant.</div>
           )}
 
           {listeAvis.map(a=>(
             <div key={a.nom} style={{background:t.bg,borderRadius:12,padding:"10px 12px",marginBottom:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
                 <Avatar nom={a.nom} profiles={profiles} taille={AV.sm} t={t}/>
-                <span style={{color:t.text,fontSize:12,fontWeight:600}}>{a.nom}</span>
+                <span style={{color:t.text,fontSize:FS.sm,fontWeight:600}}>{a.nom}</span>
                 {a.etoiles>0&&<Etoiles note={a.etoiles} couleur={couleurDe(a.nom)}/>}
                 <span style={{flex:1}}/>
                 {(a.nom===currentUser||isAdmin)&&(
-                  <button onClick={()=>supprimerAvis(a.nom)} style={{background:"none",border:"none",color:t.danger,fontSize:12,cursor:"pointer"}}>✕</button>
+                  <button onClick={()=>supprimerAvis(a.nom)} style={{background:"none",border:"none",color:t.danger,fontSize:FS.sm,cursor:"pointer"}}>✕</button>
                 )}
                 {a.nom===currentUser&&(
-                  <button onClick={ouvrirEdition} style={{background:"none",border:"none",color:t.accent,fontSize:12,cursor:"pointer"}}>✏️</button>
+                  <button onClick={ouvrirEdition} style={{background:"none",border:"none",color:t.accent,fontSize:FS.sm,cursor:"pointer"}}>✏️</button>
                 )}
               </div>
-              {a.texte&&<div style={{color:t.text,fontSize:13,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{a.texte}</div>}
+              {a.texte&&<div style={{color:t.text,fontSize:FS.sm,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{a.texte}</div>}
             </div>
           ))}
 
           {peutDonnerAvis&&!edition&&!monAvis&&(
-            <button onClick={ouvrirEdition} style={{width:"100%",padding:"10px",borderRadius:10,background:`${t.accent}18`,border:`1px solid ${t.accent}55`,color:t.accent,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            <button onClick={ouvrirEdition} style={{width:"100%",padding:"10px",borderRadius:10,background:`${t.accent}18`,border:`1px solid ${t.accent}55`,color:t.accent,fontSize:FS.sm,fontWeight:700,cursor:"pointer"}}>
               ✍️ Laisser mon avis
             </button>
           )}
 
           {edition&&(
             <div style={{background:t.bg,border:`1px solid ${t.accent}44`,borderRadius:12,padding:"12px",marginTop:4}}>
-              <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Ton avis sur ce moment</div>
+              <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,marginBottom:6}}>Ton avis sur ce moment</div>
               <textarea value={texte} onChange={e=>setTexte(e.target.value)} placeholder="Qu'as-tu pensé de cette sortie ?"
-                style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,minHeight:80,resize:"vertical",lineHeight:1.45,fontFamily:"inherit",outline:"none"}}/>
-              <div style={{color:t.muted,fontSize:11,fontWeight:600,margin:"12px 0 4px"}}>Ta satisfaction</div>
+                style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,minHeight:80,resize:"vertical",lineHeight:1.45,fontFamily:"inherit",outline:"none"}}/>
+              <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,margin:"12px 0 4px"}}>Ta satisfaction</div>
               <ChoixEtoiles note={note} onChange={setNote} couleur={maCouleur} t={t}/>
               <div style={{display:"flex",gap:8,marginTop:12}}>
                 <button onClick={enregistrerAvis} disabled={!texte.trim()&&note===0}
-                  style={{flex:1,padding:"10px",borderRadius:10,background:(texte.trim()||note>0)?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:13,cursor:(texte.trim()||note>0)?"pointer":"not-allowed"}}>
+                  style={{flex:1,padding:"10px",borderRadius:10,background:(texte.trim()||note>0)?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:FS.sm,cursor:(texte.trim()||note>0)?"pointer":"not-allowed"}}>
                   ✅ Enregistrer
                 </button>
-                <button onClick={()=>setEdition(false)} style={{padding:"10px 14px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:12,cursor:"pointer"}}>Annuler</button>
+                <button onClick={()=>setEdition(false)} style={{padding:"10px 14px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:FS.sm,cursor:"pointer"}}>Annuler</button>
               </div>
             </div>
           )}
 
           {!peutDonnerAvis&&(
-            <div style={{color:t.muted,fontSize:11,fontStyle:"italic",marginTop:6}}>Seuls les participants peuvent laisser un avis.</div>
+            <div style={{color:t.muted,fontSize:FS.xs,fontStyle:"italic",marginTop:6}}>Seuls les participants peuvent laisser un avis.</div>
           )}
         </div>
       )}
@@ -947,49 +950,49 @@ function EventsTab({currentUser,gid}){
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
       <div style={{display:"flex",gap:8,marginBottom:16}}>
         {[{id:"prochain",label:"⭐ Prochain"},{id:"historique",label:"📖 Historique"}].map(s=>(
-          <button key={s.id} onClick={()=>setSubTab(s.id)} style={{flex:1,padding:"9px",borderRadius:12,background:subTab===s.id?t.accent:t.card,border:`1px solid ${subTab===s.id?t.accent:t.border}`,color:subTab===s.id?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
+          <button key={s.id} onClick={()=>setSubTab(s.id)} style={{flex:1,padding:"9px",borderRadius:12,background:subTab===s.id?t.accent:t.card,border:`1px solid ${subTab===s.id?t.accent:t.border}`,color:subTab===s.id?"#fff":t.muted,fontSize:FS.sm,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
         ))}
       </div>
       {subTab==="prochain"&&(
         !hasEvent?(
           <div style={{textAlign:"center",padding:"40px 20px",color:t.muted}}>
-            <div style={{fontSize:48,marginBottom:12}}>📅</div>
-            <div style={{fontSize:15,fontWeight:600,color:t.text,marginBottom:6}}>Aucun événement prévu</div>
-            <div style={{fontSize:13}}>L'administrateur n'a pas encore validé de date.</div>
+            <div style={{fontSize:FS.aff,marginBottom:12}}>📅</div>
+            <div style={{fontSize:FS.md,fontWeight:600,color:t.text,marginBottom:6}}>Aucun événement prévu</div>
+            <div style={{fontSize:FS.sm}}>L'administrateur n'a pas encore validé de date.</div>
           </div>
         ):(
           <div>
             <div style={{background:`linear-gradient(135deg,${t.accent}22,${t.green}11)`,border:`1px solid ${t.accent}44`,borderRadius:16,padding:"20px",marginBottom:14,textAlign:"center"}}>
               {!past?(
                 <>
-                  <div style={{color:t.muted,fontSize:12,marginBottom:4}}>Dans</div>
-                  <div style={{color:t.accent,fontWeight:800,fontSize:48,fontFamily:"Syne,sans-serif",lineHeight:1}}>{diff}</div>
-                  <div style={{color:t.muted,fontSize:14}}>jour{diff>1?"s":""}</div>
+                  <div style={{color:t.muted,fontSize:FS.sm,marginBottom:4}}>Dans</div>
+                  <div style={{color:t.accent,fontWeight:800,fontSize:FS.aff,fontFamily:"Syne,sans-serif",lineHeight:1}}>{diff}</div>
+                  <div style={{color:t.muted,fontSize:FS.md}}>jour{diff>1?"s":""}</div>
                 </>
-              ):<div style={{color:t.green,fontWeight:700,fontSize:18}}>✅ Événement passé</div>}
+              ):<div style={{color:t.green,fontWeight:700,fontSize:FS.lg}}>✅ Événement passé</div>}
             </div>
             <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:16,padding:"16px"}}>
-              <div style={{color:t.text,fontWeight:800,fontSize:18,fontFamily:"Syne,sans-serif",marginBottom:12}}>{event.title}</div>
+              <div style={{color:t.text,fontWeight:800,fontSize:FS.lg,fontFamily:"Syne,sans-serif",marginBottom:12}}>{event.title}</div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>📅</span><span style={{color:t.text,fontSize:14}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span></div>
-                {event.slot&&<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>{event.slot==="midi"?"🍽":event.slot==="soir"?"🌙":"🍽🌙"}</span><span style={{color:t.text,fontSize:14}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi et soir"}</span></div>}
-                {event.address&&<AdressePostale adresse={event.address} t={t} taille={14}/>}
+                <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:FS.lg}}>📅</span><span style={{color:t.text,fontSize:FS.md}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span></div>
+                {event.slot&&<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:FS.lg}}>{event.slot==="midi"?"🍽":event.slot==="soir"?"🌙":"🍽🌙"}</span><span style={{color:t.text,fontSize:FS.md}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi et soir"}</span></div>}
+                {event.address&&<AdressePostale adresse={event.address} t={t} taille={FS.md}/>}
                 {event.mapsUrl&&(
                   <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:12,textDecoration:"none"}}>
-                    <span style={{fontSize:18}}>🗺️</span>
-                    <span style={{color:t.accent,fontSize:14,fontWeight:600}}>Voir l'itinéraire (Maps)</span>
+                    <span style={{fontSize:FS.lg}}>🗺️</span>
+                    <span style={{color:t.accent,fontSize:FS.md,fontWeight:600}}>Voir l'itinéraire (Maps)</span>
                   </a>
                 )}
                 {event.message&&(
                   <div style={{background:`${t.green}11`,border:`1px solid ${t.green}33`,borderRadius:12,padding:"12px 14px"}}>
-                    <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:4}}>💬 Message de l'organisateur</div>
-                    <div style={{color:t.text,fontSize:14,lineHeight:1.5,fontStyle:"italic"}}>"{event.message}"</div>
+                    <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,marginBottom:4}}>💬 Message de l'organisateur</div>
+                    <div style={{color:t.text,fontSize:FS.md,lineHeight:1.5,fontStyle:"italic"}}>"{event.message}"</div>
                   </div>
                 )}
                 {event.participants&&event.participants.length>0&&(
                   <div>
-                    <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>👥 Participants</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{event.participants.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:`${t.accent}22`,color:t.accentLight,fontSize:12,fontWeight:600}}>{p}</span>)}</div>
+                    <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,marginBottom:6}}>👥 Participants</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{event.participants.map(p=><span key={p} style={{padding:"3px 9px",borderRadius:20,background:`${t.accent}22`,color:t.accentLight,fontSize:FS.sm,fontWeight:600}}>{p}</span>)}</div>
                   </div>
                 )}
               </div>
@@ -1000,9 +1003,9 @@ function EventsTab({currentUser,gid}){
       {subTab==="historique"&&(
         sortieList.length===0?(
           <div style={{textAlign:"center",padding:"40px 20px",color:t.muted}}>
-            <div style={{fontSize:48,marginBottom:12}}>📖</div>
-            <div style={{fontSize:15,fontWeight:600,color:t.text,marginBottom:6}}>Aucune sortie archivée</div>
-            <div style={{fontSize:13}}>L'historique apparaîtra ici.</div>
+            <div style={{fontSize:FS.aff,marginBottom:12}}>📖</div>
+            <div style={{fontSize:FS.md,fontWeight:600,color:t.text,marginBottom:6}}>Aucune sortie archivée</div>
+            <div style={{fontSize:FS.sm}}>L'historique apparaîtra ici.</div>
           </div>
         ):(
           sortieList.map(s=>(
@@ -1056,55 +1059,55 @@ function ThemesTab({currentUser}){
   }
   return(
     <div style={{padding:"10px 12px"}}>
-      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Mon avatar</div>
-      <div style={{color:t.muted,fontSize:12,marginBottom:12}}>Il apparaît dans le chat, les avis et la liste des membres.</div>
+      <div style={{color:t.text,fontWeight:700,fontSize:FS.md,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Mon avatar</div>
+      <div style={{color:t.muted,fontSize:FS.sm,marginBottom:12}}>Il apparaît dans le chat, les avis et la liste des membres.</div>
       <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:16,padding:"14px",marginBottom:22}}>
         <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
           <Avatar nom={currentUser} profiles={profiles} taille={AV.xl} t={t}/>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{color:t.text,fontSize:14,fontWeight:700}}>{currentUser}</div>
-            <div style={{color:t.muted,fontSize:11}}>{prof.photo?"Photo personnelle":prof.icone?"Icône personnalisée":"Initiale du prénom"}</div>
+            <div style={{color:t.text,fontSize:FS.md,fontWeight:700}}>{currentUser}</div>
+            <div style={{color:t.muted,fontSize:FS.xs}}>{prof.photo?"Photo personnelle":prof.icone?"Icône personnalisée":"Initiale du prénom"}</div>
           </div>
           {(prof.icone||prof.photo)&&(
-            <button onClick={retirerAvatar} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.muted,fontSize:11,cursor:"pointer"}}>Retirer</button>
+            <button onClick={retirerAvatar} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.muted,fontSize:FS.xs,cursor:"pointer"}}>Retirer</button>
           )}
         </div>
-        <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Couleur du fond</div>
+        <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,marginBottom:6}}>Couleur du fond</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>
           {AVATAR_COLORS.map(c=>(
             <button key={c} onClick={()=>majProfil({color:c})}
               style={{width:30,height:30,borderRadius:"50%",background:c,cursor:"pointer",border:(prof.color||AVATAR_COLORS[0])===c?"3px solid #fff":"3px solid transparent"}}/>
           ))}
         </div>
-        <label style={{display:"block",padding:"9px",marginBottom:14,borderRadius:10,background:`${t.accent}18`,border:`1px dashed ${t.accent}66`,color:t.accent,fontSize:12,fontWeight:600,textAlign:"center",cursor:envoiPhoto?"wait":"pointer"}}>
+        <label style={{display:"block",padding:"9px",marginBottom:14,borderRadius:10,background:`${t.accent}18`,border:`1px dashed ${t.accent}66`,color:t.accent,fontSize:FS.sm,fontWeight:600,textAlign:"center",cursor:envoiPhoto?"wait":"pointer"}}>
           {envoiPhoto?"Envoi en cours…":"🖼️ Choisir une photo dans ma bibliothèque"}
           <input type="file" accept="image/*" disabled={envoiPhoto} onChange={choisirPhoto} style={{display:"none"}}/>
         </label>
-        <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Icône (facultative)</div>
+        <div style={{color:t.muted,fontSize:FS.xs,fontWeight:600,marginBottom:6}}>Icône (facultative)</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(42px,1fr))",gap:6}}>
           {ICONES.map(ic=>(
             <button key={ic} onClick={()=>majProfil({icone:prof.icone===ic?null:ic})}
-              style={{padding:"6px 0",fontSize:22,lineHeight:1,borderRadius:10,cursor:"pointer",background:prof.icone===ic?`${t.accent}33`:t.bg,border:`1px solid ${prof.icone===ic?t.accent:t.border}`}}>{ic}</button>
+              style={{padding:"6px 0",fontSize:FS.xl,lineHeight:1,borderRadius:10,cursor:"pointer",background:prof.icone===ic?`${t.accent}33`:t.bg,border:`1px solid ${prof.icone===ic?t.accent:t.border}`}}>{ic}</button>
           ))}
         </div>
       </div>
-      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Choisis ton thème</div>
-      <div style={{color:t.muted,fontSize:12,marginBottom:14}}>Ton choix est personnel — il ne change pas l'affichage des autres membres.</div>
+      <div style={{color:t.text,fontWeight:700,fontSize:FS.md,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Choisis ton thème</div>
+      <div style={{color:t.muted,fontSize:FS.sm,marginBottom:14}}>Ton choix est personnel — il ne change pas l'affichage des autres membres.</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {Object.entries(THEMES).map(([key,theme])=>{
           const isActive=currentThemeKey===key;
           return(
             <button key={key} onClick={()=>selectTheme(key)} style={{padding:"14px",borderRadius:16,background:theme.card,border:`2px solid ${isActive?theme.accent:theme.border}`,cursor:"pointer",textAlign:"left",position:"relative",transition:"all 0.2s"}}>
-              {isActive&&<div style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:"50%",background:theme.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#fff",fontWeight:700}}>✓</div>}
-              <div style={{fontWeight:700,fontSize:13,color:theme.text,marginBottom:8}}>{theme.name}</div>
+              {isActive&&<div style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:"50%",background:theme.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:FS.xs,color:"#fff",fontWeight:700}}>✓</div>}
+              <div style={{fontWeight:700,fontSize:FS.sm,color:theme.text,marginBottom:8}}>{theme.name}</div>
               <div style={{display:"flex",gap:4,marginBottom:6}}>
                 {[theme.border,theme.accent+"44",theme.accent+"88",theme.accent,theme.accent,theme.green].map((c,i)=>(
                   <div key={i} style={{width:14,height:14,borderRadius:4,background:c,flexShrink:0}}/>
                 ))}
               </div>
               <div style={{display:"flex",gap:5}}>
-                <div style={{padding:"2px 7px",borderRadius:10,background:`${theme.accent}33`,color:theme.accentLight,fontSize:10,fontWeight:600}}>🍽</div>
-                <div style={{padding:"2px 7px",borderRadius:10,background:`${theme.green}33`,color:theme.green,fontSize:10,fontWeight:600}}>🌙</div>
+                <div style={{padding:"2px 7px",borderRadius:10,background:`${theme.accent}33`,color:theme.accentLight,fontSize:FS.xs,fontWeight:600}}>🍽</div>
+                <div style={{padding:"2px 7px",borderRadius:10,background:`${theme.green}33`,color:theme.green,fontSize:FS.xs,fontWeight:600}}>🌙</div>
               </div>
             </button>
           );
@@ -1186,19 +1189,19 @@ function VoteTab({currentUser,isAdmin=false,gid}){
     if(editId===p.id)fermer();
   }
 
-  const champStyle={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
-  const labelStyle={color:t.muted,fontSize:11,fontWeight:600,margin:"12px 0 5px"};
-  const lienStyle={color:t.accent,fontSize:12,textDecoration:"none",overflowWrap:"anywhere",wordBreak:"break-word"};
-  const petitBtn=(coul)=>({background:"none",border:`1px solid ${coul}55`,borderRadius:8,padding:"4px 8px",color:coul,fontSize:12,cursor:"pointer",flexShrink:0});
+  const champStyle={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
+  const labelStyle={color:t.muted,fontSize:FS.xs,fontWeight:600,margin:"12px 0 5px"};
+  const lienStyle={color:t.accent,fontSize:FS.sm,textDecoration:"none",overflowWrap:"anywhere",wordBreak:"break-word"};
+  const petitBtn=(coul)=>({background:"none",border:`1px solid ${coul}55`,borderRadius:8,padding:"4px 8px",color:coul,fontSize:FS.sm,cursor:"pointer",flexShrink:0});
 
   function rendreFormulaire(enEdition){
     return(
       <div style={{background:t.card,border:`1px solid ${t.accent}55`,borderRadius:16,padding:"14px",marginBottom:14}}>
-        {enEdition&&<div style={{color:t.text,fontWeight:700,fontSize:14,marginBottom:4}}>✏️ Modifier la proposition</div>}
+        {enEdition&&<div style={{color:t.text,fontWeight:700,fontSize:FS.md,marginBottom:4}}>✏️ Modifier la proposition</div>}
         <div style={{...labelStyle,marginTop:enEdition?8:0}}>Catégorie *</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {CATEGORIES.map(c=>(
-            <button key={c} onClick={()=>maj("category",c)} style={{padding:"6px 12px",borderRadius:20,background:champs.category===c?t.accent:t.bg,border:`1px solid ${champs.category===c?t.accent:t.border}`,color:champs.category===c?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            <button key={c} onClick={()=>maj("category",c)} style={{padding:"6px 12px",borderRadius:20,background:champs.category===c?t.accent:t.bg,border:`1px solid ${champs.category===c?t.accent:t.border}`,color:champs.category===c?"#fff":t.muted,fontSize:FS.sm,fontWeight:600,cursor:"pointer"}}>
               {c}
             </button>
           ))}
@@ -1213,12 +1216,12 @@ function VoteTab({currentUser,isAdmin=false,gid}){
         <input type="tel" inputMode="tel" value={champs.telephone} onChange={e=>maj("telephone",e.target.value)} placeholder="Ex. 04 78 00 00 00" style={champStyle}/>
         <div style={labelStyle}>Description</div>
         <textarea value={champs.description} onChange={e=>maj("description",e.target.value)} placeholder="Ambiance, budget, pourquoi cet endroit…" style={{...champStyle,resize:"vertical",minHeight:110,lineHeight:1.45}}/>
-        <div style={{color:t.muted,fontSize:10,marginTop:6}}>* Catégorie obligatoire, ainsi qu'un nom de lieu ou une description. Le reste est facultatif.</div>
+        <div style={{color:t.muted,fontSize:FS.xs,marginTop:6}}>* Catégorie obligatoire, ainsi qu'un nom de lieu ou une description. Le reste est facultatif.</div>
         <div style={{display:"flex",gap:8,marginTop:12}}>
-          <button onClick={enEdition?saveEdit:addProposal} disabled={!valide||saving} style={{flex:1,padding:"12px",borderRadius:12,background:valide?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:valide?"pointer":"not-allowed"}}>
+          <button onClick={enEdition?saveEdit:addProposal} disabled={!valide||saving} style={{flex:1,padding:"12px",borderRadius:12,background:valide?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:FS.md,cursor:valide?"pointer":"not-allowed"}}>
             {saving?"Envoi...":enEdition?"✅ Enregistrer":"✅ Soumettre ma proposition"}
           </button>
-          {enEdition&&<button onClick={fermer} style={{padding:"12px 14px",borderRadius:12,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:13,cursor:"pointer"}}>Annuler</button>}
+          {enEdition&&<button onClick={fermer} style={{padding:"12px 14px",borderRadius:12,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:FS.sm,cursor:"pointer"}}>Annuler</button>}
         </div>
       </div>
     );
@@ -1228,10 +1231,10 @@ function VoteTab({currentUser,isAdmin=false,gid}){
     <div style={{padding:"10px 12px",overflowX:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
         <div>
-          <div style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Syne,sans-serif"}}>🗳️ Voter pour un lieu</div>
-          <div style={{color:t.muted,fontSize:12}}>Propose et vote pour votre prochaine sortie !</div>
+          <div style={{color:t.text,fontWeight:700,fontSize:FS.md,fontFamily:"Syne,sans-serif"}}>🗳️ Voter pour un lieu</div>
+          <div style={{color:t.muted,fontSize:FS.sm}}>Propose et vote pour votre prochaine sortie !</div>
         </div>
-        <button onClick={ouvrirCreation} style={{padding:"8px 14px",borderRadius:12,background:showForm?t.card:t.accent,border:`1px solid ${showForm?t.border:t.accent}`,color:showForm?t.muted:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+        <button onClick={ouvrirCreation} style={{padding:"8px 14px",borderRadius:12,background:showForm?t.card:t.accent,border:`1px solid ${showForm?t.border:t.accent}`,color:showForm?t.muted:"#fff",fontSize:FS.sm,fontWeight:700,cursor:"pointer",flexShrink:0}}>
           {showForm?"Annuler":"+ Proposer"}
         </button>
       </div>
@@ -1240,9 +1243,9 @@ function VoteTab({currentUser,isAdmin=false,gid}){
 
       {propList.length===0?(
         <div style={{textAlign:"center",padding:"40px 20px"}}>
-          <div style={{fontSize:40,marginBottom:10}}>🗳️</div>
-          <div style={{color:t.text,fontWeight:600,fontSize:15,marginBottom:6}}>Aucune proposition pour l'instant</div>
-          <div style={{color:t.muted,fontSize:13}}>Sois le premier à proposer un lieu !</div>
+          <div style={{fontSize:FS.aff,marginBottom:10}}>🗳️</div>
+          <div style={{color:t.text,fontWeight:600,fontSize:FS.md,marginBottom:6}}>Aucune proposition pour l'instant</div>
+          <div style={{color:t.muted,fontSize:FS.sm}}>Sois le premier à proposer un lieu !</div>
         </div>
       ):(
         propList.map((p,idx)=>{
@@ -1257,15 +1260,15 @@ function VoteTab({currentUser,isAdmin=false,gid}){
           const col=prof.color||t.accent;
           return(
             <div key={p.id} style={{background:t.card,border:`1px solid ${idx===0&&pour>0?t.green+"66":t.border}`,borderRadius:16,padding:"14px",marginBottom:10,position:"relative"}}>
-              {idx===0&&pour>0&&<div style={{position:"absolute",top:-8,left:14,background:t.green,color:"#000",fontSize:10,fontWeight:800,padding:"2px 10px",borderRadius:20}}>🏆 Favori</div>}
+              {idx===0&&pour>0&&<div style={{position:"absolute",top:-8,left:14,background:t.green,color:"#000",fontSize:FS.xs,fontWeight:800,padding:"2px 10px",borderRadius:20}}>🏆 Favori</div>}
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:8}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:t.accent,fontSize:12,fontWeight:700,marginBottom:3}}>{p.category}</div>
-                  {p.titre&&<div style={{color:t.text,fontSize:15,fontWeight:700,marginBottom:4,overflowWrap:"anywhere"}}>{p.titre}</div>}
-                  {p.description&&<div style={{color:t.text,fontSize:13,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",opacity:p.titre?0.85:1}}>{p.description}</div>}
+                  <div style={{color:t.accent,fontSize:FS.sm,fontWeight:700,marginBottom:3}}>{p.category}</div>
+                  {p.titre&&<div style={{color:t.text,fontSize:FS.md,fontWeight:700,marginBottom:4,overflowWrap:"anywhere"}}>{p.titre}</div>}
+                  {p.description&&<div style={{color:t.text,fontSize:FS.sm,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",opacity:p.titre?0.85:1}}>{p.description}</div>}
                   {(p.adresse||p.site||p.telephone)&&(
                     <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>
-                      {p.adresse&&<AdressePostale adresse={p.adresse} t={t} taille={12}/>}
+                      {p.adresse&&<AdressePostale adresse={p.adresse} t={t} taille={FS.sm}/>}
                       {p.site&&<a href={lienWeb(p.site)} target="_blank" rel="noopener noreferrer" style={lienStyle}>🌐 {domaine(p.site)}</a>}
                       {p.telephone&&<a href={lienTel(p.telephone)} style={lienStyle}>📞 {p.telephone}</a>}
                     </div>
@@ -1280,23 +1283,23 @@ function VoteTab({currentUser,isAdmin=false,gid}){
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
                 <Avatar nom={auteur} profiles={profiles} taille={AV.sm} t={t}/>
-                <span style={{color:t.muted,fontSize:11}}>par {auteur}</span>
-                {p.modifiedAt&&<span style={{color:t.muted,fontSize:11,fontStyle:"italic"}}>· modifiée{p.modifiedBy&&p.modifiedBy!==auteur?` par ${p.modifiedBy}`:""}</span>}
+                <span style={{color:t.muted,fontSize:FS.xs}}>par {auteur}</span>
+                {p.modifiedAt&&<span style={{color:t.muted,fontSize:FS.xs,fontStyle:"italic"}}>· modifiée{p.modifiedBy&&p.modifiedBy!==auteur?` par ${p.modifiedBy}`:""}</span>}
               </div>
               <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <button onClick={()=>vote(p.id,"pour")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="pour"?`${t.green}33`:t.bg,border:`2px solid ${myVote==="pour"?t.green:t.border}`,color:myVote==="pour"?t.green:t.muted,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                  👍 Pour <span style={{background:t.green+"33",borderRadius:10,padding:"1px 7px",color:t.green,fontSize:12}}>{pour}</span>
+                <button onClick={()=>vote(p.id,"pour")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="pour"?`${t.green}33`:t.bg,border:`2px solid ${myVote==="pour"?t.green:t.border}`,color:myVote==="pour"?t.green:t.muted,fontWeight:700,fontSize:FS.sm,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  👍 Pour <span style={{background:t.green+"33",borderRadius:10,padding:"1px 7px",color:t.green,fontSize:FS.sm}}>{pour}</span>
                 </button>
-                <button onClick={()=>vote(p.id,"contre")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="contre"?`${t.danger}22`:t.bg,border:`2px solid ${myVote==="contre"?t.danger:t.border}`,color:myVote==="contre"?t.danger:t.muted,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                  👎 Contre <span style={{background:t.danger+"22",borderRadius:10,padding:"1px 7px",color:t.danger,fontSize:12}}>{contre}</span>
+                <button onClick={()=>vote(p.id,"contre")} style={{flex:1,padding:"9px",borderRadius:12,background:myVote==="contre"?`${t.danger}22`:t.bg,border:`2px solid ${myVote==="contre"?t.danger:t.border}`,color:myVote==="contre"?t.danger:t.muted,fontWeight:700,fontSize:FS.sm,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  👎 Contre <span style={{background:t.danger+"22",borderRadius:10,padding:"1px 7px",color:t.danger,fontSize:FS.sm}}>{contre}</span>
                 </button>
               </div>
               {Object.entries(votes).length>0&&(
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {Object.entries(votes).map(([voter,v])=>(
                     <div key={voter} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:20,background:v==="pour"?`${t.green}22`:`${t.danger}22`,border:`1px solid ${v==="pour"?t.green+"44":t.danger+"44"}`}}>
-                      <span style={{fontSize:11}}>{v==="pour"?"👍":"👎"}</span>
-                      <span style={{color:v==="pour"?t.green:t.danger,fontSize:11,fontWeight:600}}>{voter}</span>
+                      <span style={{fontSize:FS.xs}}>{v==="pour"?"👍":"👎"}</span>
+                      <span style={{color:v==="pour"?t.green:t.danger,fontSize:FS.xs,fontWeight:600}}>{voter}</span>
                     </div>
                   ))}
                 </div>
@@ -1329,7 +1332,7 @@ function MonMotDePasse({currentUser,t}){
   const[nouveau,setNouveau]=useState("");
   const[conf,setConf]=useState("");
   const[msg,setMsg]=useState(null);
-  const champ={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",marginBottom:8};
+  const champ={width:"100%",padding:"10px 12px",borderRadius:10,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,outline:"none",marginBottom:8};
   async function valider(){
     if(nouveau.length<6){setMsg({ok:false,text:"Nouveau mot de passe : 6 caractères minimum."});return;}
     if(nouveau!==conf){setMsg({ok:false,text:"Les deux saisies ne correspondent pas."});return;}
@@ -1348,20 +1351,20 @@ function MonMotDePasse({currentUser,t}){
   return(
     <div style={{background:t.card,borderRadius:16,border:`1px solid ${t.border}`,padding:"12px 14px"}}>
       <button onClick={()=>{setOuvert(o=>!o);setMsg(null);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",cursor:"pointer",padding:0}}>
-        <span style={{fontSize:20}}>🔑</span>
+        <span style={{fontSize:FS.lg}}>🔑</span>
         <div style={{textAlign:"left",flex:1}}>
-          <div style={{color:t.text,fontWeight:700,fontSize:13}}>Mon mot de passe</div>
-          <div style={{color:t.muted,fontSize:11}}>Le modifier</div>
+          <div style={{color:t.text,fontWeight:700,fontSize:FS.sm}}>Mon mot de passe</div>
+          <div style={{color:t.muted,fontSize:FS.xs}}>Le modifier</div>
         </div>
-        <span style={{color:t.muted,fontSize:16}}>{ouvert?"⌄":"›"}</span>
+        <span style={{color:t.muted,fontSize:FS.md}}>{ouvert?"⌄":"›"}</span>
       </button>
       {ouvert&&(
         <div style={{marginTop:12}}>
           <input type="password" value={actuel} onChange={e=>{setActuel(e.target.value);setMsg(null);}} placeholder="Mot de passe actuel" style={champ}/>
           <input type="password" value={nouveau} onChange={e=>{setNouveau(e.target.value);setMsg(null);}} placeholder="Nouveau mot de passe" style={champ}/>
           <input type="password" value={conf} onChange={e=>{setConf(e.target.value);setMsg(null);}} placeholder="Confirmer" style={champ}/>
-          {msg&&<div style={{padding:"7px 10px",borderRadius:8,marginBottom:8,fontSize:12,fontWeight:600,background:msg.ok?`${t.green}18`:`${t.danger}18`,color:msg.ok?t.green:t.danger}}>{msg.text}</div>}
-          <button onClick={valider} style={{width:"100%",padding:"9px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓ Enregistrer</button>
+          {msg&&<div style={{padding:"7px 10px",borderRadius:8,marginBottom:8,fontSize:FS.sm,fontWeight:600,background:msg.ok?`${t.green}18`:`${t.danger}18`,color:msg.ok?t.green:t.danger}}>{msg.text}</div>}
+          <button onClick={valider} style={{width:"100%",padding:"9px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:FS.sm,cursor:"pointer"}}>✓ Enregistrer</button>
         </div>
       )}
     </div>
@@ -1392,8 +1395,8 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
       <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>
         <Avatar nom={currentUser} profiles={profiles} taille={AV.lg} t={t}/>
         <div>
-          <div style={{color:t.text,fontWeight:700,fontSize:16}}>Bonjour, {currentUser} !</div>
-          <div style={{color:t.muted,fontSize:12}}>Que veux-tu faire ?</div>
+          <div style={{color:t.text,fontWeight:700,fontSize:FS.md}}>Bonjour, {currentUser} !</div>
+          <div style={{color:t.muted,fontSize:FS.sm}}>Que veux-tu faire ?</div>
         </div>
       </div>
       <MonMotDePasse currentUser={currentUser} t={t}/>
@@ -1402,20 +1405,20 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
         {menus.map(m=>(
           <button key={m.id} onClick={()=>onNavigate(m.id)} style={{padding:"14px 10px",borderRadius:16,background:t.card,border:`1px solid ${m.badge?t.danger+"66":t.border}`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:7,position:"relative"}}>
             {m.badge&&<div style={{position:"absolute",top:10,right:10,width:9,height:9,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
-            <span style={{fontSize:26}}>{m.icon}</span>
-            <span style={{color:t.text,fontWeight:700,fontSize:13}}>{m.label}</span>
+            <span style={{fontSize:FS.xl}}>{m.icon}</span>
+            <span style={{color:t.text,fontWeight:700,fontSize:FS.sm}}>{m.label}</span>
           </button>
         ))}
       </div>
       {/* Ligne Thèmes + Voter */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <button onClick={()=>onNavigate("themes")} style={{padding:"12px",borderRadius:16,background:t.card,border:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <span style={{fontSize:22}}>🎨</span>
-          <span style={{color:t.text,fontWeight:700,fontSize:13}}>Thèmes</span>
+          <span style={{fontSize:FS.xl}}>🎨</span>
+          <span style={{color:t.text,fontWeight:700,fontSize:FS.sm}}>Thèmes</span>
         </button>
         <button onClick={()=>onNavigate("vote")} style={{padding:"12px",borderRadius:16,background:`linear-gradient(135deg,${t.accent}44,${t.green}22)`,border:`2px solid ${t.accent}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <span style={{fontSize:22}}>🗳️</span>
-          <span style={{color:t.accent,fontWeight:800,fontSize:13}}>Voter !</span>
+          <span style={{fontSize:FS.xl}}>🗳️</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:FS.sm}}>Voter !</span>
         </button>
       </div>
       {/* Bannière événement */}
@@ -1425,30 +1428,30 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
             {event.imageUrl&&<img src={event.imageUrl} alt="" style={{width:"100%",maxHeight:130,objectFit:"cover",display:"block"}}/>}
             <div style={{background:`linear-gradient(135deg,${t.accent}22,${t.green}11)`,padding:"14px"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <span style={{fontSize:20}}>🎉</span>
-                <div style={{color:t.accent,fontWeight:800,fontSize:18}}>{event.title}</div>
+                <span style={{fontSize:FS.lg}}>🎉</span>
+                <div style={{color:t.accent,fontWeight:800,fontSize:FS.lg}}>{event.title}</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                <div style={{display:"flex",alignItems:"center",gap:7}}><span>📅</span><span style={{color:t.text,fontSize:14,fontWeight:600}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</span></div>
-                {!past&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>⏳</span><span style={{color:t.green,fontSize:15,fontWeight:700}}>Dans {diff} jour{diff>1?"s":""} !</span></div>}
-                {past&&<div style={{color:t.danger,fontSize:12,fontWeight:600}}>✅ Événement passé</div>}
-                {event.slot&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>{event.slot==="midi"?"🍽":"🌙"}</span><span style={{color:t.muted,fontSize:12}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi & soir"}</span></div>}
-                {event.address&&<AdressePostale adresse={event.address} t={t} taille={13}/>}
+                <div style={{display:"flex",alignItems:"center",gap:7}}><span>📅</span><span style={{color:t.text,fontSize:FS.md,fontWeight:600}}>{eventDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</span></div>
+                {!past&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>⏳</span><span style={{color:t.green,fontSize:FS.md,fontWeight:700}}>Dans {diff} jour{diff>1?"s":""} !</span></div>}
+                {past&&<div style={{color:t.danger,fontSize:FS.sm,fontWeight:600}}>✅ Événement passé</div>}
+                {event.slot&&<div style={{display:"flex",alignItems:"center",gap:7}}><span>{event.slot==="midi"?"🍽":"🌙"}</span><span style={{color:t.muted,fontSize:FS.sm}}>{event.slot==="midi"?"Repas du midi":event.slot==="soir"?"Repas du soir":"Midi & soir"}</span></div>}
+                {event.address&&<AdressePostale adresse={event.address} t={t} taille={FS.sm}/>}
                 {event.mapsUrl&&(
                   <a href={event.mapsUrl} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:`${t.accent}22`,border:`1px solid ${t.accent}44`,borderRadius:10,textDecoration:"none",marginTop:2}}>
-                    <span style={{fontSize:16}}>🗺️</span>
-                    <span style={{color:t.accent,fontSize:13,fontWeight:600}}>Voir l'itinéraire</span>
+                    <span style={{fontSize:FS.md}}>🗺️</span>
+                    <span style={{color:t.accent,fontSize:FS.sm,fontWeight:600}}>Voir l'itinéraire</span>
                   </a>
                 )}
-                {event.message&&<div style={{background:`${t.green}11`,borderRadius:8,padding:"8px 12px",marginTop:2}}><span style={{color:t.text,fontSize:13,fontStyle:"italic"}}>"{event.message}"</span></div>}
+                {event.message&&<div style={{background:`${t.green}11`,borderRadius:8,padding:"8px 12px",marginTop:2}}><span style={{color:t.text,fontSize:FS.sm,fontStyle:"italic"}}>"{event.message}"</span></div>}
               </div>
             </div>
           </div>
         ):(
           <div style={{borderRadius:16,border:`2px dashed ${t.border}`,padding:"18px",textAlign:"center",background:t.card}}>
-            <div style={{fontSize:34,marginBottom:6}}>😢 ⏳</div>
-            <div style={{color:t.muted,fontSize:13,fontWeight:600}}>Aucun événement prévu</div>
-            <div style={{color:t.muted,fontSize:11,marginTop:3}}>L'administrateur n'a pas encore validé de date...</div>
+            <div style={{fontSize:FS.aff,marginBottom:6}}>😢 ⏳</div>
+            <div style={{color:t.muted,fontSize:FS.sm,fontWeight:600}}>Aucun événement prévu</div>
+            <div style={{color:t.muted,fontSize:FS.xs,marginTop:3}}>L'administrateur n'a pas encore validé de date...</div>
           </div>
         )}
       </div>
@@ -1459,16 +1462,16 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
 // ─── User App ─────────────────────────────────────────────────────────────────
 function BarreGroupe({liste,gid,onChange,t,vide}){
   if(!liste.length)return(
-    <div style={{padding:"9px 16px",background:`${t.danger}18`,borderBottom:`1px solid ${t.border}`,color:t.danger,fontSize:12,fontWeight:600,flexShrink:0}}>{vide}</div>
+    <div style={{padding:"9px 16px",background:`${t.danger}18`,borderBottom:`1px solid ${t.border}`,color:t.danger,fontSize:FS.sm,fontWeight:600,flexShrink:0}}>{vide}</div>
   );
   const g=(liste.find(([id])=>id===gid)||[])[1]||{};
   return(
     <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 16px",background:t.card,borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
-      <span style={{fontSize:15}}>{g.type==="ephemere"?"\u23f3":"\ud83d\udc6a"}</span>
-      <select value={gid||""} onChange={e=>onChange(e.target.value)} style={{flex:1,background:"none",border:"none",color:t.text,fontSize:13,fontWeight:700,outline:"none",cursor:"pointer",WebkitAppearance:"none",appearance:"none"}}>
+      <span style={{fontSize:FS.md}}>{g.type==="ephemere"?"\u23f3":"\ud83d\udc6a"}</span>
+      <select value={gid||""} onChange={e=>onChange(e.target.value)} style={{flex:1,background:"none",border:"none",color:t.text,fontSize:FS.sm,fontWeight:700,outline:"none",cursor:"pointer",WebkitAppearance:"none",appearance:"none"}}>
         {liste.map(([id,gr])=><option key={id} value={id} style={{background:t.card,color:t.text}}>{gr.nom}</option>)}
       </select>
-      <span style={{color:t.muted,fontSize:11}}>▾</span>
+      <span style={{color:t.muted,fontSize:FS.xs}}>▾</span>
     </div>
   );
 }
@@ -1529,18 +1532,18 @@ function UserApp({currentUser,onLogout}){
         {/* Header */}
         <div style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
           <div>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:19,letterSpacing:-0.5}}>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:FS.lg,letterSpacing:-0.5}}>
               {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
             </div>
-            <div style={{color:t.muted,fontSize:13}}>{appSub}</div>
+            <div style={{color:t.muted,fontSize:FS.sm}}>{appSub}</div>
           </div>
           <div style={{display:"flex",gap:8}}>
             {!isHome&&(
-              <button onClick={()=>setTab("home")} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:13,fontWeight:600}}>
+              <button onClick={()=>setTab("home")} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:FS.sm,fontWeight:600}}>
                 Accueil
               </button>
             )}
-            <button onClick={onLogout} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:13,fontWeight:600}}>
+            <button onClick={onLogout} style={{padding:"7px 14px",background:t.card,border:`1px solid ${t.border}`,borderRadius:20,cursor:"pointer",color:t.text,fontSize:FS.sm,fontWeight:600}}>
               Quitter
             </button>
           </div>
@@ -1567,9 +1570,9 @@ function UserApp({currentUser,onLogout}){
               {id:"themes",  icon:"🎨",label:"Thèmes"},
             ].map(tb=>(
               <button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,padding:"10px 0 12px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderTop:tab===tb.id?`2px solid ${t.accent}`:"2px solid transparent",marginTop:-1,minWidth:0,position:"relative"}}>
-                <span style={{fontSize:20}}>{tb.icon}</span>
+                <span style={{fontSize:FS.lg}}>{tb.icon}</span>
                 {tb.badge&&<div style={{position:"absolute",top:6,right:"calc(50% - 14px)",width:8,height:8,borderRadius:"50%",background:t.danger,animation:"pulse 1.5s infinite"}}/>}
-                <span style={{fontSize:10,fontWeight:600,color:tab===tb.id?t.accentLight:t.muted,whiteSpace:"nowrap"}}>{tb.label}</span>
+                <span style={{fontSize:FS.xs,fontWeight:600,color:tab===tb.id?t.accentLight:t.muted,whiteSpace:"nowrap"}}>{tb.label}</span>
               </button>
             ))}
           </div>
@@ -1605,18 +1608,18 @@ function AdminPanel({onExit}){
       <style>{GCSS}</style>
       <div style={{padding:"14px 16px 11px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg,position:"sticky",top:0,zIndex:10,flexShrink:0}}>
         <div>
-          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:t.text}}>⚙️ {appName}</div>
-          <div style={{color:t.muted,fontSize:13}}>{appSub}</div>
+          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:FS.lg,color:t.text}}>⚙️ {appName}</div>
+          <div style={{color:t.muted,fontSize:FS.sm}}>{appSub}</div>
         </div>
-        <button onClick={onExit} style={{padding:"8px 14px",borderRadius:20,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,cursor:"pointer"}}>Quitter</button>
+        <button onClick={onExit} style={{padding:"8px 14px",borderRadius:20,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,cursor:"pointer"}}>Quitter</button>
       </div>
       <BarreGroupe liste={tousGroupes} gid={gid} onChange={choisirGroupe} t={t} vide="Aucun groupe créé."/>
       {/* Menus admin sur 2 rangées de 4 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,padding:"12px 12px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
         {sections.map(s=>(
           <button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"14px 6px",borderRadius:14,background:section===s.id?t.accent:t.card,border:`1px solid ${section===s.id?t.accent:t.border}`,color:section===s.id?"#fff":t.muted,fontWeight:700,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,minHeight:80}}>
-            <span style={{fontSize:16}}>{s.icon}</span>
-            <span style={{fontSize:12,whiteSpace:"nowrap",textAlign:"center",lineHeight:1.2}}>{s.label}</span>
+            <span style={{fontSize:FS.md}}>{s.icon}</span>
+            <span style={{fontSize:FS.sm,whiteSpace:"nowrap",textAlign:"center",lineHeight:1.2}}>{s.label}</span>
           </button>
         ))}
       </div>
@@ -1637,9 +1640,9 @@ function AdminPanel({onExit}){
 }
 
 function ACard({children,t}){return<div style={{margin:"10px 12px",padding:"14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>{children}</div>;}
-function ALabel({children,t}){return<div style={{color:t.muted,fontSize:13,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>{children}</div>;}
-function SaveBtn({onClick,t,label="Enregistrer",saved}){return<button onClick={onClick} style={{padding:"11px",borderRadius:12,marginTop:10,background:saved?t.green:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",width:"100%",transition:"background 0.3s"}}>{label}</button>;}
-function AInput({value,onChange,t,placeholder=""}){return<input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"13px 16px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:15,outline:"none"}}/>;}
+function ALabel({children,t}){return<div style={{color:t.muted,fontSize:FS.sm,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>{children}</div>;}
+function SaveBtn({onClick,t,label="Enregistrer",saved}){return<button onClick={onClick} style={{padding:"11px",borderRadius:12,marginTop:10,background:saved?t.green:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:FS.md,cursor:"pointer",width:"100%",transition:"background 0.3s"}}>{label}</button>;}
+function AInput({value,onChange,t,placeholder=""}){return<input value={value} onChange={onChange} placeholder={placeholder} style={{width:"100%",padding:"13px 16px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.md,outline:"none"}}/>;}
 
 function AdminHome({t,onNav,gid}){
   const users=useFirebase("users",{});
@@ -1650,12 +1653,12 @@ function AdminHome({t,onNav,gid}){
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Aperçu temps réel</ALabel>
-        <div style={{display:"flex",gap:8}}>{stats.map(s=><div key={s.label} style={{flex:1,background:t.bg,borderRadius:12,padding:"10px",textAlign:"center"}}><div style={{fontSize:20}}>{s.icon}</div><div style={{color:t.text,fontWeight:700,fontSize:18}}>{s.value}</div><div style={{color:t.muted,fontSize:10}}>{s.label}</div></div>)}</div>
+        <div style={{display:"flex",gap:8}}>{stats.map(s=><div key={s.label} style={{flex:1,background:t.bg,borderRadius:12,padding:"10px",textAlign:"center"}}><div style={{fontSize:FS.lg}}>{s.icon}</div><div style={{color:t.text,fontWeight:700,fontSize:FS.lg}}>{s.value}</div><div style={{color:t.muted,fontSize:FS.xs}}>{s.label}</div></div>)}</div>
       </ACard>
       <ACard t={t}><ALabel t={t}>Accès rapide</ALabel>
         {[{id:"identity",icon:"✏️",label:"Nom de l'app"},{id:"theme",icon:"🎨",label:"Couleurs"},{id:"users",icon:"👥",label:"Membres"},{id:"event",icon:"🎯",label:"Valider un événement"},{id:"sorties",icon:"📖",label:"Archiver une sortie"}].map(item=>(
-          <button key={item.id} onClick={()=>onNav(item.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px",marginBottom:5,background:t.bg,border:`1px solid ${t.border}`,borderRadius:12,cursor:"pointer",color:t.text,fontSize:13,fontWeight:500}}>
-            <span style={{fontSize:16}}>{item.icon}</span>{item.label}<span style={{marginLeft:"auto",color:t.muted}}>›</span>
+          <button key={item.id} onClick={()=>onNav(item.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px",marginBottom:5,background:t.bg,border:`1px solid ${t.border}`,borderRadius:12,cursor:"pointer",color:t.text,fontSize:FS.sm,fontWeight:500}}>
+            <span style={{fontSize:FS.md}}>{item.icon}</span>{item.label}<span style={{marginLeft:"auto",color:t.muted}}>›</span>
           </button>
         ))}
       </ACard>
@@ -1696,7 +1699,7 @@ function AdminTheme({t}){
   const colorRow=(label,val,setFn)=>(
     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
       <input type="color" value={val} onChange={e=>setFn(e.target.value)} style={{width:42,height:42,borderRadius:10,border:"none",cursor:"pointer"}}/>
-      <div><div style={{color:t.text,fontSize:13,fontWeight:600}}>{label}</div><div style={{color:t.muted,fontSize:11}}>{val}</div></div>
+      <div><div style={{color:t.text,fontSize:FS.sm,fontWeight:600}}>{label}</div><div style={{color:t.muted,fontSize:FS.xs}}>{val}</div></div>
     </div>
   );
   return(
@@ -1704,7 +1707,7 @@ function AdminTheme({t}){
       <ACard t={t}><ALabel t={t}>Thèmes prédéfinis (thème global par défaut)</ALabel>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
           {Object.entries(THEMES).map(([key,theme])=>(
-            <button key={key} onClick={()=>{setAccent(theme.accent);setGreen(theme.green);setBg(theme.bg);setCard(theme.card);}} style={{padding:"8px 10px",borderRadius:12,background:theme.card,border:`1px solid ${theme.accent}66`,color:theme.accent,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"left"}}>
+            <button key={key} onClick={()=>{setAccent(theme.accent);setGreen(theme.green);setBg(theme.bg);setCard(theme.card);}} style={{padding:"8px 10px",borderRadius:12,background:theme.card,border:`1px solid ${theme.accent}66`,color:theme.accent,fontSize:FS.xs,fontWeight:700,cursor:"pointer",textAlign:"left"}}>
               {theme.name}
             </button>
           ))}
@@ -1754,7 +1757,7 @@ function AdminUsers({t}){
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Ajouter un membre</ALabel>
-        <div style={{display:"flex",gap:8}}><AInput value={newName} onChange={e=>setNewName(e.target.value)} t={t} placeholder="Prénom ou pseudo"/><button onClick={addUser} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:18,flexShrink:0}}>+</button></div>
+        <div style={{display:"flex",gap:8}}><AInput value={newName} onChange={e=>setNewName(e.target.value)} t={t} placeholder="Prénom ou pseudo"/><button onClick={addUser} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:FS.lg,flexShrink:0}}>+</button></div>
       </ACard>
       <ACard t={t}><ALabel t={t}>{userList.length} membre{userList.length>1?"s":""}</ALabel>
         {userList.map(u=>{
@@ -1762,8 +1765,8 @@ function AdminUsers({t}){
             <div key={u}>
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
                 <Avatar nom={u} profiles={profiles} taille={AV.md} t={t}/>
-                <div style={{flex:1,minWidth:0}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{u}</div><div style={{fontSize:10,color:t.muted}}>Compte géré par Firebase Authentication</div></div>
-                <button onClick={()=>removeUser(u)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
+                <div style={{flex:1,minWidth:0}}><div style={{color:t.text,fontSize:FS.sm,fontWeight:600}}>{u}</div><div style={{fontSize:FS.xs,color:t.muted}}>Compte géré par Firebase Authentication</div></div>
+                <button onClick={()=>removeUser(u)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:FS.sm,cursor:"pointer",flexShrink:0}}>✕</button>
               </div>
             </div>
           );
@@ -1813,7 +1816,7 @@ function AdminGroupes({t}){
       <ACard t={t}><ALabel t={t}>Créer un groupe</ALabel>
         <div style={{display:"flex",gap:8}}>
           <AInput value={newNom} onChange={e=>setNewNom(e.target.value)} t={t} placeholder="Nom du groupe"/>
-          <button onClick={addGroupe} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:18,flexShrink:0}}>+</button>
+          <button onClick={addGroupe} style={{padding:"11px 14px",borderRadius:12,background:t.accent,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:FS.lg,flexShrink:0}}>+</button>
         </div>
       </ACard>
       <ACard t={t}><ALabel t={t}>{liste.length} groupe{liste.length>1?"s":""}</ALabel>
@@ -1824,34 +1827,34 @@ function AdminGroupes({t}){
           return(
             <div key={id}>
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
-                <div style={{width:34,height:34,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{g.type==="ephemere"?"⏳":"👪"}</div>
+                <div style={{width:34,height:34,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:FS.md,flexShrink:0}}>{g.type==="ephemere"?"⏳":"👪"}</div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:t.text,fontSize:13,fontWeight:600}}>{g.nom}</div>
-                  <div style={{fontSize:10,color:t.muted}}>{nb} membre{nb>1?"s":""}{g.type==="ephemere"?" · éphémère":""}</div>
+                  <div style={{color:t.text,fontSize:FS.sm,fontWeight:600}}>{g.nom}</div>
+                  <div style={{fontSize:FS.xs,color:t.muted}}>{nb} membre{nb>1?"s":""}{g.type==="ephemere"?" · éphémère":""}</div>
                 </div>
-                <button onClick={()=>{setOpen(ouvert?null:id);setEditNom(g.nom||"");}} style={{background:"none",border:`1px solid ${t.accent}55`,borderRadius:8,padding:"4px 8px",color:t.accent,fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>{ouvert?"Fermer":"Gérer"}</button>
-                <button onClick={()=>delGroupe(id,g.nom)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
+                <button onClick={()=>{setOpen(ouvert?null:id);setEditNom(g.nom||"");}} style={{background:"none",border:`1px solid ${t.accent}55`,borderRadius:8,padding:"4px 8px",color:t.accent,fontSize:FS.xs,cursor:"pointer",fontWeight:600,flexShrink:0}}>{ouvert?"Fermer":"Gérer"}</button>
+                <button onClick={()=>delGroupe(id,g.nom)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:FS.sm,cursor:"pointer",flexShrink:0}}>✕</button>
               </div>
               {ouvert&&(
                 <div style={{margin:"8px 0 10px",padding:"12px",background:t.bg,borderRadius:12,border:`1px solid ${t.accent}33`}}>
-                  <div style={{color:t.muted,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Nom du groupe</div>
+                  <div style={{color:t.muted,fontSize:FS.xs,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Nom du groupe</div>
                   <div style={{display:"flex",gap:7,marginBottom:12}}>
-                    <input value={editNom} onChange={e=>setEditNom(e.target.value)} style={{flex:1,padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none"}}/>
-                    <button onClick={()=>renameGroupe(id)} style={{padding:"9px 12px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>✓</button>
+                    <input value={editNom} onChange={e=>setEditNom(e.target.value)} style={{flex:1,padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,outline:"none"}}/>
+                    <button onClick={()=>renameGroupe(id)} style={{padding:"9px 12px",borderRadius:10,background:t.accent,border:"none",color:"#fff",fontWeight:700,fontSize:FS.sm,cursor:"pointer"}}>✓</button>
                   </div>
-                  <div style={{color:t.muted,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Membres du groupe</div>
+                  <div style={{color:t.muted,fontSize:FS.xs,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Membres du groupe</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                     {userList.map(u=>{
                       const dedans=!!membres[u];
                       return(
-                        <button key={u} onClick={()=>toggleMembre(id,u,dedans)} style={{padding:"7px 11px",borderRadius:20,background:dedans?t.accent:t.card,border:`1px solid ${dedans?t.accent:t.border}`,color:dedans?"#fff":t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                        <button key={u} onClick={()=>toggleMembre(id,u,dedans)} style={{padding:"7px 11px",borderRadius:20,background:dedans?t.accent:t.card,border:`1px solid ${dedans?t.accent:t.border}`,color:dedans?"#fff":t.muted,fontSize:FS.sm,fontWeight:600,cursor:"pointer"}}>
                           {dedans?"✓ ":""}{u}
                         </button>
                       );
                     })}
                   </div>
                   {g.type==="ephemere"&&(
-                    <button onClick={()=>resetGroupe(id,g.nom)} style={{marginTop:12,width:"100%",padding:"9px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,fontWeight:600,cursor:"pointer"}}>♻️ Réinitialiser ce groupe</button>
+                    <button onClick={()=>resetGroupe(id,g.nom)} style={{marginTop:12,width:"100%",padding:"9px",borderRadius:10,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:FS.sm,fontWeight:600,cursor:"pointer"}}>♻️ Réinitialiser ce groupe</button>
                   )}
                 </div>
               )}
@@ -1897,11 +1900,11 @@ function AdminAvail({t,gid}){
       <ACard t={t}>
         <ALabel t={t}>Calendrier admin</ALabel>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-          <button onClick={prevM} style={{background:"none",border:"none",color:t.muted,fontSize:22,cursor:"pointer",padding:"2px 8px"}}>‹</button>
-          <span style={{color:t.text,fontWeight:700,fontSize:14}}>{MONTHS[month]} {year}</span>
-          <button onClick={nextM} style={{background:"none",border:"none",color:t.muted,fontSize:22,cursor:"pointer",padding:"2px 8px"}}>›</button>
+          <button onClick={prevM} style={{background:"none",border:"none",color:t.muted,fontSize:FS.xl,cursor:"pointer",padding:"2px 8px"}}>‹</button>
+          <span style={{color:t.text,fontWeight:700,fontSize:FS.md}}>{MONTHS[month]} {year}</span>
+          <button onClick={nextM} style={{background:"none",border:"none",color:t.muted,fontSize:FS.xl,cursor:"pointer",padding:"2px 8px"}}>›</button>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>{DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:10,fontWeight:600}}>{d}</div>)}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>{DAYS_FR.map((d,i)=><div key={i} style={{textAlign:"center",color:t.muted,fontSize:FS.xs,fontWeight:600}}>{d}</div>)}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
           {Array(first).fill(null).map((_,i)=><div key={"e"+i}/>)}
           {Array.from({length:days},(_,i)=>i+1).map(d=>{
@@ -1911,8 +1914,8 @@ function AdminAvail({t,gid}){
             const isSel=sel===ds;
             const past=ds<todayStr;
             return<button key={d} onClick={()=>setSel(isSel?null:ds)} style={{aspectRatio:"1",borderRadius:8,background:count>0?heatColor(count,Math.max(users.length,1),t):t.bg,border:isSel?`2px solid ${t.accent}`:`2px solid ${t.border}33`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:past?0.4:1}}>
-              <span style={{color:t.text,fontSize:11}}>{d}</span>
-              {count>0&&<span style={{fontSize:8,color:"#fff",fontWeight:700}}>{count}</span>}
+              <span style={{color:t.text,fontSize:FS.xs}}>{d}</span>
+              {count>0&&<span style={{fontSize:FS.xs,color:"#fff",fontWeight:700}}>{count}</span>}
             </button>;
           })}
         </div>
@@ -1922,18 +1925,18 @@ function AdminAvail({t,gid}){
           <ALabel t={t}>{new Date(sel+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</ALabel>
           {["midi","soir"].map(slot=>(
             <div key={slot} style={{marginBottom:12}}>
-              <div style={{color:t.muted,fontSize:12,fontWeight:600,marginBottom:6}}>{slot==="midi"?"🍽 Midi":"🌙 Soir"}</div>
+              <div style={{color:t.muted,fontSize:FS.sm,fontWeight:600,marginBottom:6}}>{slot==="midi"?"🍽 Midi":"🌙 Soir"}</div>
               {users.map(u=>{
                 const checked=getSlots(sel)[slot].includes(u);
                 return<button key={u} onClick={()=>toggleUser(sel,slot,u)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:11,background:checked?`${t.green}18`:t.bg,border:`1px solid ${checked?t.green+"66":t.border}`,cursor:"pointer",width:"100%",marginBottom:5}}>
                   <Avatar nom={u} profiles={profiles} taille={AV.sm} t={t}/>
-                  <span style={{color:t.text,fontSize:13,flex:1}}>{u}</span>
-                  <div style={{width:20,height:20,borderRadius:5,background:checked?t.green:t.bg,border:`2px solid ${checked?t.green:t.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{checked&&<span style={{color:"#000",fontSize:11,fontWeight:800}}>✓</span>}</div>
+                  <span style={{color:t.text,fontSize:FS.sm,flex:1}}>{u}</span>
+                  <div style={{width:20,height:20,borderRadius:5,background:checked?t.green:t.bg,border:`2px solid ${checked?t.green:t.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{checked&&<span style={{color:"#000",fontSize:FS.xs,fontWeight:800}}>✓</span>}</div>
                 </button>;
               })}
             </div>
           ))}
-          <button onClick={()=>clearDay(sel)} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:12,cursor:"pointer"}}>🗑 Effacer toutes les dispos</button>
+          <button onClick={()=>clearDay(sel)} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:FS.sm,cursor:"pointer"}}>🗑 Effacer toutes les dispos</button>
         </ACard>
       )}
     </div>
@@ -1981,7 +1984,7 @@ function AdminEvent({t,gid}){
         await marquerOccupation(p,ev.date,cr,gid,{statut:"propose"});
     }
   }
-  const textareaStyle={width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none",resize:"vertical",minHeight:80};
+  const textareaStyle={width:"100%",padding:"11px 14px",borderRadius:12,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,outline:"none",resize:"vertical",minHeight:80};
   return(
     <div style={{padding:"8px 0 20px"}}>
       {(()=>{
@@ -1992,41 +1995,41 @@ function AdminEvent({t,gid}){
           <ACard t={t}>
             <ALabel t={t}>Événement {isPastEvent?"passé":"actuel"}</ALabel>
             <div style={{padding:"12px",background:isPastEvent?`${t.danger}11`:`${t.green}11`,borderRadius:12,border:`1px solid ${isPastEvent?t.danger+"33":t.green+"33"}`,marginBottom:10}}>
-              <div style={{color:t.text,fontWeight:700,fontSize:15}}>{event.title}</div>
-              <div style={{color:t.muted,fontSize:12,marginTop:4}}>{evDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
-              {isPastEvent&&<div style={{color:t.danger,fontSize:12,marginTop:4,fontWeight:600}}>⚠️ Cet événement est passé — pensez à l'archiver !</div>}
-              {event.message&&<div style={{color:t.muted,fontSize:12,marginTop:4,fontStyle:"italic"}}>"{event.message}"</div>}
-              {event.address&&<div style={{marginTop:4}}><AdressePostale adresse={event.address} t={t} taille={12}/></div>}
+              <div style={{color:t.text,fontWeight:700,fontSize:FS.md}}>{event.title}</div>
+              <div style={{color:t.muted,fontSize:FS.sm,marginTop:4}}>{evDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+              {isPastEvent&&<div style={{color:t.danger,fontSize:FS.sm,marginTop:4,fontWeight:600}}>⚠️ Cet événement est passé — pensez à l'archiver !</div>}
+              {event.message&&<div style={{color:t.muted,fontSize:FS.sm,marginTop:4,fontStyle:"italic"}}>"{event.message}"</div>}
+              {event.address&&<div style={{marginTop:4}}><AdressePostale adresse={event.address} t={t} taille={FS.sm}/></div>}
             </div>
-            <button onClick={clearEvent} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:13,cursor:"pointer"}}>🗑 Supprimer l'événement</button>
+            <button onClick={clearEvent} style={{width:"100%",padding:"9px",borderRadius:11,background:"none",border:`1px solid ${t.danger}55`,color:t.danger,fontSize:FS.sm,cursor:"pointer"}}>🗑 Supprimer l'événement</button>
           </ACard>
         );
       })()}
       <ACard t={t}>
         <ALabel t={t}>Valider un nouvel événement</ALabel>
-        <div style={{color:t.muted,fontSize:12,marginBottom:6}}>Titre *</div>
+        <div style={{color:t.muted,fontSize:FS.sm,marginBottom:6}}>Titre *</div>
         <AInput value={title} onChange={e=>setTitle(e.target.value)} t={t} placeholder="Ex: Dîner de Noël 🎄"/>
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Meilleures dates disponibles</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>Meilleures dates disponibles</div>
         {suggestions.map(s=>(
           <button key={s.date} onClick={()=>setSelDate(s.date)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 12px",marginBottom:5,background:selDate===s.date?`${t.accent}22`:t.bg,border:`1px solid ${selDate===s.date?t.accent:t.border}`,borderRadius:11,cursor:"pointer"}}>
-            <span style={{color:t.text,fontSize:13,flex:1}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
-            <span style={{fontSize:11,color:t.muted}}>🍽{s.midi.length} 🌙{s.soir.length}</span>
-            <span style={{padding:"2px 8px",borderRadius:10,background:`${t.accent}22`,color:t.accent,fontSize:11,fontWeight:700}}>{s.total}/{users.length}</span>
+            <span style={{color:t.text,fontSize:FS.sm,flex:1}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
+            <span style={{fontSize:FS.xs,color:t.muted}}>🍽{s.midi.length} 🌙{s.soir.length}</span>
+            <span style={{padding:"2px 8px",borderRadius:10,background:`${t.accent}22`,color:t.accent,fontSize:FS.xs,fontWeight:700}}>{s.total}/{users.length}</span>
           </button>
         ))}
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Créneau</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>Créneau</div>
         <div style={{display:"flex",gap:7,marginBottom:12}}>
           {[{id:"midi",label:"🍽 Midi"},{id:"soir",label:"🌙 Soir"},{id:"les-deux",label:"🍽🌙 Les deux"}].map(s=>(
-            <button key={s.id} onClick={()=>setSelSlot(s.id)} style={{flex:1,padding:"8px 4px",borderRadius:10,background:selSlot===s.id?`${t.accent}22`:t.bg,border:`1px solid ${selSlot===s.id?t.accent:t.border}`,color:selSlot===s.id?t.accent:t.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
+            <button key={s.id} onClick={()=>setSelSlot(s.id)} style={{flex:1,padding:"8px 4px",borderRadius:10,background:selSlot===s.id?`${t.accent}22`:t.bg,border:`1px solid ${selSlot===s.id?t.accent:t.border}`,color:selSlot===s.id?t.accent:t.muted,fontSize:FS.xs,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
           ))}
         </div>
-        <div style={{color:t.muted,fontSize:12,marginBottom:6}}>💬 Message de bienvenue</div>
+        <div style={{color:t.muted,fontSize:FS.sm,marginBottom:6}}>💬 Message de bienvenue</div>
         <textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="Ex: On se retrouve à 20h, tenue décontractée !" style={textareaStyle}/>
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>📍 Adresse du lieu</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>📍 Adresse du lieu</div>
         <AInput value={address} onChange={e=>setAddress(e.target.value)} t={t} placeholder="Ex: Restaurant Le Bistrot, 12 rue de la Paix, Paris"/>
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>🗺️ Lien Google Maps</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>🗺️ Lien Google Maps</div>
         <AInput value={mapsUrl} onChange={e=>setMapsUrl(e.target.value)} t={t} placeholder="https://maps.google.com/..."/>
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>🖼️ Image ou GIF (lien URL)</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>🖼️ Image ou GIF (lien URL)</div>
         <AInput value={imageUrl} onChange={e=>setImageUrl(e.target.value)} t={t} placeholder="https://media.giphy.com/..."/>
         <SaveBtn onClick={validate} t={t} label={saved?"✓ Événement validé !":"🎯 Valider et notifier"} saved={saved}/>
       </ACard>
@@ -2077,19 +2080,19 @@ function AdminSorties({t,gid}){
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}>
         <ALabel t={t}>Archiver une sortie</ALabel>
-        <div style={{color:t.muted,fontSize:12,marginBottom:6}}>Titre</div>
+        <div style={{color:t.muted,fontSize:FS.sm,marginBottom:6}}>Titre</div>
         <AInput value={title} onChange={e=>setTitle(e.target.value)} t={t} placeholder="Ex: Soirée pizza 🍕"/>
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Date</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>Date</div>
         {suggestions.map(s=>(
           <button key={s.date} onClick={()=>setSelDate(s.date)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 12px",marginBottom:4,background:selDate===s.date?`${t.accent}22`:t.bg,border:`1px solid ${selDate===s.date?t.accent:t.border}`,borderRadius:10,cursor:"pointer"}}>
-            <span style={{color:t.text,fontSize:12,flex:1}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</span>
-            <span style={{fontSize:10,color:t.muted}}>{s.total} pers.</span>
+            <span style={{color:t.text,fontSize:FS.sm,flex:1}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</span>
+            <span style={{fontSize:FS.xs,color:t.muted}}>{s.total} pers.</span>
           </button>
         ))}
-        <div style={{color:t.muted,fontSize:12,margin:"10px 0 6px"}}>Créneau</div>
+        <div style={{color:t.muted,fontSize:FS.sm,margin:"10px 0 6px"}}>Créneau</div>
         <div style={{display:"flex",gap:7,marginBottom:4}}>
           {[{id:"midi",label:"🍽 Midi"},{id:"soir",label:"🌙 Soir"},{id:"les-deux",label:"🍽🌙 Les deux"}].map(s=>(
-            <button key={s.id} onClick={()=>setSelSlot(s.id)} style={{flex:1,padding:"7px 4px",borderRadius:10,background:selSlot===s.id?`${t.accent}22`:t.bg,border:`1px solid ${selSlot===s.id?t.accent:t.border}`,color:selSlot===s.id?t.accent:t.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
+            <button key={s.id} onClick={()=>setSelSlot(s.id)} style={{flex:1,padding:"7px 4px",borderRadius:10,background:selSlot===s.id?`${t.accent}22`:t.bg,border:`1px solid ${selSlot===s.id?t.accent:t.border}`,color:selSlot===s.id?t.accent:t.muted,fontSize:FS.xs,fontWeight:600,cursor:"pointer"}}>{s.label}</button>
           ))}
         </div>
         <SaveBtn onClick={archive} t={t} label={saved?"✓ Archivé !":"📖 Archiver cette sortie"} saved={saved}/>
@@ -2123,14 +2126,14 @@ function AdminSecurity({t}){
       setMsg({ok:true,text:"Mot de passe modifié !"});setTimeout(()=>setMsg(null),3000);
     }catch(e){ setMsg({ok:false,text:messageAuth(e)}); }
   }
-  const pwRow=(label,val,setFn)=><div style={{marginBottom:10}}><div style={{color:t.muted,fontSize:12,marginBottom:5}}>{label}</div><input type="password" value={val} onChange={e=>setFn(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:11,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:13,outline:"none"}}/></div>;
+  const pwRow=(label,val,setFn)=><div style={{marginBottom:10}}><div style={{color:t.muted,fontSize:FS.sm,marginBottom:5}}>{label}</div><input type="password" value={val} onChange={e=>setFn(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:11,background:t.bg,border:`1px solid ${t.border}`,color:t.text,fontSize:FS.sm,outline:"none"}}/></div>;
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}><ALabel t={t}>Changer le mot de passe admin</ALabel>
         {pwRow("Mot de passe actuel",cur,setCur)}
         {pwRow("Nouveau mot de passe",np,setNp)}
         {pwRow("Confirmer",conf,setConf)}
-        {msg&&<div style={{padding:"8px 12px",borderRadius:9,marginBottom:8,background:msg.ok?`${t.green}18`:`${t.danger}18`,color:msg.ok?t.green:t.danger,fontSize:12}}>{msg.text}</div>}
+        {msg&&<div style={{padding:"8px 12px",borderRadius:9,marginBottom:8,background:msg.ok?`${t.green}18`:`${t.danger}18`,color:msg.ok?t.green:t.danger,fontSize:FS.sm}}>{msg.text}</div>}
         <SaveBtn onClick={save} t={t} label="Changer le mot de passe"/>
       </ACard>
     </div>
