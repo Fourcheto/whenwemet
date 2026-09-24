@@ -37,7 +37,14 @@ const getDays  = (y,m) => new Date(y,m+1,0).getDate();
 const getFirst = (y,m) => new Date(y,m,1).getDay();
 const MONTHS   = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const DAYS_FR  = ["D","L","M","M","J","V","S"];
-const AVATAR_COLORS = ["#6C63FF","#FF6B6B","#3DDC84","#FFD166","#00C9A7","#E91E8C","#3498DB","#F39C12","#9B59B6","#1ABC9C"];
+const AVATAR_COLORS = ["#6C63FF","#FF6B6B","#3DDC84","#FFD166","#00C9A7","#E91E8C","#3498DB","#F39C12","#9B59B6","#1ABC9C","#FFFFFF","#15151C"];
+// Texte sombre sur fond clair, clair sur fond sombre.
+function texteSur(hex){
+  const h=(hex||"").replace("#","");
+  if(h.length!==6)return "#fff";
+  const r=parseInt(h.slice(0,2),16),v=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return (0.299*r+0.587*v+0.114*b)>160?"#1A1A22":"#fff";
+}
 const EMOJI_REACTIONS = ["👍","❤️","😂","😮","🎉","🙏"];
 
 function heatColor(count,total,theme){
@@ -96,6 +103,37 @@ function EcranChargement(){
   );
 }
 
+// ─── Avatar unique ────────────────────────────────────────────────────────────
+const AV={xs:24,sm:28,md:40,lg:48,xl:66,xxl:88};
+const ICONES=["😀","😎","🤓","🥳","😇","🤠","🙂","😺","🐶","🐱","🦊","🐼","🐨","🐵","🦁","🐸","🐧","🦉","🦄","🐝","🌻","🌵","🍀","🍕","🍔","🌮","🍣","🍺","☕","🍷","⚽","🏀","🎾","⛳","🎣","🚴","🏃","🎸","🎧","🎬","📚","🎲","🧩","🚗","✈️","⛵","🏔","🌊","⭐","🔥"];
+
+function useProfils(){
+  const profiles=useFirebase("profiles",{});
+  const avatars=useFirebase("avatars",{});
+  const fusion={};
+  for(const[n,p]of Object.entries(profiles||{}))fusion[n]={...p};
+  for(const[n,a]of Object.entries(avatars||{}))fusion[n]={...(fusion[n]||{}),photo:a};
+  return fusion;
+}
+
+function Avatar({nom,profiles,taille=AV.md,online=false,t,fond}){
+  const prof=(profiles||{})[nom]||{};
+  const couleur=fond||prof.color||t.accent;
+  const pastille=Math.max(9,Math.round(taille*0.22));
+  return(
+    <div style={{position:"relative",flexShrink:0,width:taille,height:taille}}>
+      <div style={{width:taille,height:taille,borderRadius:"50%",background:couleur,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",color:texteSur(couleur),fontWeight:700,fontSize:Math.round(taille*0.42),lineHeight:1}}>
+        {prof.photo
+          ?<img src={prof.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+          :prof.icone
+            ?<span style={{fontSize:Math.round(taille*0.58),lineHeight:1,display:"block"}}>{prof.icone}</span>
+            :(nom||"?")[0].toUpperCase()}
+      </div>
+      {online&&<div style={{position:"absolute",bottom:0,right:0,width:pastille,height:pastille,borderRadius:"50%",background:t.green,border:`2px solid ${t.card}`}}/>}
+    </div>
+  );
+}
+
 function useFirebase(path,defaultVal){
   const[data,setData]=useState(defaultVal);
   useEffect(()=>{
@@ -110,6 +148,11 @@ function useFirebase(path,defaultVal){
 // ─── Global CSS ───────────────────────────────────────────────────────────────
 const GCSS=`
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+.liste-acces::-webkit-scrollbar{width:10px}
+.liste-acces::-webkit-scrollbar-track{background:transparent}
+.liste-acces::-webkit-scrollbar-thumb{background:#ffffff44;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+.liste-acces::-webkit-scrollbar-thumb:hover{background:#ffffff77;background-clip:padding-box}
+.liste-acces{scrollbar-width:auto;scrollbar-color:#ffffff55 transparent}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -191,6 +234,7 @@ function SplashScreen({onEnter}){
   const[adminPw,setAdminPw]=useState("");
   const[adminErr,setAdminErr]=useState(false);
   const[fadeIn,setFadeIn]=useState(false);
+  const profilsAvecPhoto=useProfils();
   const[appName,okNom]=useFirebaseCharge("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
   const[usersObj,okUsers]=useFirebaseCharge("users",{});
@@ -248,24 +292,24 @@ function SplashScreen({onEnter}){
       </svg>
       <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:260,height:260,borderRadius:"50%",background:`radial-gradient(circle,${t.accent}22 0%,transparent 70%)`,pointerEvents:"none"}}/>
       <div style={{textAlign:"center",zIndex:1,padding:"0 28px",maxWidth:400,width:"100%"}}>
-        <div style={{animation:"float 4s ease-in-out infinite",marginBottom:8}}>
-          <div style={{width:80,height:80,borderRadius:24,margin:"0 auto",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,boxShadow:`0 0 40px ${t.accent}55`}}>📅</div>
+        <div style={{animation:"float 4s ease-in-out infinite",marginBottom:18}}>
+          <div style={{width:64,height:64,borderRadius:20,margin:"0 auto",background:`linear-gradient(135deg,${t.accent},${t.accentLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,boxShadow:`0 0 40px ${t.accent}55`}}>📅</div>
         </div>
-        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:32,letterSpacing:-1,marginBottom:4}}>
+        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:30,lineHeight:1.15,letterSpacing:-1,marginBottom:6}}>
           {appName.split("").map((ch,i)=><span key={i} style={{color:i<Math.floor(appName.length/2)?t.text:t.accent}}>{ch}</span>)}
         </div>
-        <div style={{color:t.muted,fontSize:14,marginBottom:28}}>{appSub}</div>
+        <div style={{color:t.muted,fontSize:14,marginBottom:20}}>{appSub}</div>
 
         {phase==="title"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{color:t.muted,fontSize:12,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Choisissez votre accès</div>
-            <div style={{background:`${t.card}CC`,border:`1px solid ${t.border}`,borderRadius:18,padding:"4px",maxHeight:240,overflowY:"auto"}}>
+            <div className="liste-acces" style={{background:`${t.card}CC`,border:`1px solid ${t.border}`,borderRadius:18,padding:"4px",maxHeight:"min(48vh,460px)",overflowY:"auto"}}>
               {userList.length===0&&<div style={{color:t.muted,fontSize:13,padding:"16px"}}>Aucun membre pour l'instant — contacte l'administrateur.</div>}
               {userList.map((u,i)=>{
                 const col=(profiles||{})[u]?.color||AVATAR_COLORS[0];
                 return(
                   <button key={u} onClick={()=>openLogin(u)} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"11px 14px",background:"none",border:"none",borderRadius:14,cursor:"pointer",borderBottom:i<userList.length-1?`1px solid ${t.border}44`:"none"}}>
-                    <div style={{width:36,height:36,borderRadius:"50%",flexShrink:0,background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15}}>{u[0].toUpperCase()}</div>
+                    <Avatar nom={u} profiles={profilsAvecPhoto} taille={AV.md} t={t}/>
                     <span style={{color:t.text,fontWeight:600,fontSize:15}}>{u}</span>
                     <span style={{marginLeft:"auto",color:t.muted,fontSize:18}}>›</span>
                   </button>
@@ -281,7 +325,7 @@ function SplashScreen({onEnter}){
         {phase==="login"&&loginUser&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
-              <div style={{width:64,height:64,borderRadius:"50%",background:(profiles||{})[loginUser]?.color||t.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:"#fff"}}>{loginUser[0].toUpperCase()}</div>
+              <Avatar nom={loginUser} profiles={profilsAvecPhoto} taille={AV.xxl} t={t}/>
             </div>
             <div style={{color:t.text,fontWeight:700,fontSize:18,fontFamily:"Syne,sans-serif"}}>Bonjour, {loginUser} !</div>
             <PwInput value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr("");}} onEnter={tryLogin} error={!!loginErr} t={t}/>
@@ -482,7 +526,7 @@ function ChatTab({currentUser,gid}){
   const bottomRef=useRef(null);
   const t=C();
   const msgsObj=useFirebase(chemin(gid,"messages"),{});
-  const profiles=useFirebase("profiles",{});
+  const profiles=useProfils();
   const msgs=Object.entries(msgsObj||{}).map(([id,m])=>({id,...m})).sort((a,b)=>a.ts-b.ts);
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]);
   async function send(){
@@ -523,10 +567,10 @@ function ChatTab({currentUser,gid}){
               )}
               <div style={{display:"flex",flexDirection:"column",alignItems:isMe?"flex-end":"flex-start"}}>
                 {!isMe&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,marginLeft:4}}>
-                  <div style={{width:18,height:18,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#fff"}}>{m.user[0]}</div>
+                  <Avatar nom={m.user} profiles={profiles} taille={AV.xs} t={t}/>
                   <span style={{color:t.muted,fontSize:11}}>{m.user}</span>
                 </div>}
-                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?col:t.card,color:"#fff",fontSize:14,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
+                <div style={{maxWidth:"80%",padding:"9px 13px",borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",background:isMe?t.accent:t.card,color:isMe?"#fff":t.text,fontSize:14,lineHeight:1.4,border:isMe?"none":`1px solid ${t.border}`}}>{m.text}</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:3,justifyContent:isMe?"flex-end":"flex-start"}}>
                   {Object.entries(reactions).filter(([,u])=>u.length>0).map(([emoji,users])=>(
                     <button key={emoji} onClick={()=>addReaction(m.id,emoji)} style={{padding:"2px 7px",borderRadius:12,background:users.includes(currentUser)?`${t.accent}33`:t.card,border:`1px solid ${users.includes(currentUser)?t.accent:t.border}`,cursor:"pointer",fontSize:12,color:t.text}}>{emoji} {users.length}</button>
@@ -556,7 +600,7 @@ function FriendsTab({currentUser,gid}){
   const t=C();
   const usersObj=useFirebase("users",{});
   const avail=useFirebase(chemin(gid,"availability"),{});
-  const profiles=useFirebase("profiles",{});
+  const profiles=useProfils();
   const presence=useFirebase("presence",{});
   const sorties=useFirebase(chemin(gid,"sorties"),{});
   const users=Object.keys(usersObj||{});
@@ -590,19 +634,10 @@ function FriendsTab({currentUser,gid}){
       {users.map(u=>{
         const col=(profiles||{})[u]?.color||t.accent;
         const online=(presence||{})[u]?.online||false;
-        const total=(counts[u]?.midi||0)+(counts[u]?.soir||0);
         return(
           <div key={u} style={{padding:"10px",background:t.card,borderRadius:14,border:`1px solid ${u===currentUser?t.accent+"66":t.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:6,position:"relative"}}>
-            <div style={{position:"relative"}}>
-              <div style={{width:38,height:38,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15}}>{u[0].toUpperCase()}</div>
-              {online&&<div style={{position:"absolute",bottom:0,right:0,width:12,height:12,borderRadius:"50%",background:t.green,border:`2px solid ${t.card}`}}/>}
-            </div>
+            <Avatar nom={u} profiles={profiles} taille={AV.xl} online={online} t={t}/>
             <div style={{color:t.text,fontWeight:600,fontSize:13,textAlign:"center"}}>{u}{u===currentUser&&<span style={{color:t.accent,fontSize:10,display:"block"}}>(vous)</span>}</div>
-            <div style={{display:"flex",gap:4}}>
-              <span style={{padding:"2px 6px",borderRadius:8,background:`${t.accent}22`,color:t.accentLight,fontSize:10,fontWeight:600}}>🍽 {counts[u]?.midi||0}</span>
-              <span style={{padding:"2px 6px",borderRadius:8,background:`${t.green}22`,color:t.green,fontSize:10,fontWeight:600}}>🌙 {counts[u]?.soir||0}</span>
-            </div>
-            <div style={{width:24,height:24,borderRadius:"50%",background:`${t.green}22`,display:"flex",alignItems:"center",justifyContent:"center",color:t.green,fontWeight:700,fontSize:11}}>{total}</div>
           </div>
         );
       })}
@@ -668,7 +703,7 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
   const[note,setNote]=useState(0);
   const[envoi,setEnvoi]=useState(false);
   const[apercu,setApercu]=useState(null);
-  const profiles=useFirebase("profiles",{});
+  const profiles=useProfils();
   const photos=useFirebase(ouvert?chemin(gid,`photos/${s.id}`):null,{});
 
   const avis=s.avis||{};
@@ -804,7 +839,7 @@ function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
           {listeAvis.map(a=>(
             <div key={a.nom} style={{background:t.bg,borderRadius:12,padding:"10px 12px",marginBottom:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
-                <div style={{width:22,height:22,borderRadius:"50%",background:couleurDe(a.nom),display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700,flexShrink:0}}>{a.nom[0]}</div>
+                <Avatar nom={a.nom} profiles={profiles} taille={AV.sm} t={t}/>
                 <span style={{color:t.text,fontSize:12,fontWeight:600}}>{a.nom}</span>
                 {a.etoiles>0&&<Etoiles note={a.etoiles} couleur={couleurDe(a.nom)}/>}
                 <span style={{flex:1}}/>
@@ -949,7 +984,7 @@ function EventsTab({currentUser,gid}){
 // ─── Themes Tab ───────────────────────────────────────────────────────────────
 function ThemesTab({currentUser}){
   const t=C();
-  const profiles=useFirebase("profiles",{});
+  const profiles=useProfils();
   const currentThemeKey=(profiles||{})[currentUser]?.theme||"cosmos";
   const[,rerender]=useState(0);
   async function selectTheme(key){
@@ -959,8 +994,59 @@ function ThemesTab({currentUser}){
     window.dispatchEvent(new Event("themechange"));
     rerender(n=>n+1);
   }
+  const prof=(profiles||{})[currentUser]||{};
+  const[envoiPhoto,setEnvoiPhoto]=useState(false);
+  async function majProfil(champs){
+    await update(ref(db,`profiles/${currentUser}`),champs);
+    rerender(n=>n+1);
+  }
+  async function choisirPhoto(e){
+    const f=e.target.files?.[0];
+    e.target.value="";
+    if(!f)return;
+    setEnvoiPhoto(true);
+    try{
+      const data=await compresserImage(f,320,45000);
+      await set(ref(db,`avatars/${currentUser}`),data);
+    }catch{
+      window.alert("Cette image n'a pas pu être utilisée.");
+    }finally{setEnvoiPhoto(false);}
+  }
+  async function retirerPhoto(){await remove(ref(db,`avatars/${currentUser}`));}
   return(
     <div style={{padding:"10px 12px"}}>
+      <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Mon avatar</div>
+      <div style={{color:t.muted,fontSize:12,marginBottom:12}}>Il apparaît dans le chat, les avis et la liste des membres.</div>
+      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:16,padding:"14px",marginBottom:22}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
+          <Avatar nom={currentUser} profiles={profiles} taille={AV.xl} t={t}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:t.text,fontSize:14,fontWeight:700}}>{currentUser}</div>
+            <div style={{color:t.muted,fontSize:11}}>{prof.photo?"Photo personnelle":prof.icone?"Icône personnalisée":"Initiale du prénom"}</div>
+          </div>
+          {(prof.icone||prof.photo)&&(
+            <button onClick={()=>prof.photo?retirerPhoto():majProfil({icone:null})} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.muted,fontSize:11,cursor:"pointer"}}>Retirer</button>
+          )}
+        </div>
+        <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Couleur du fond</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>
+          {AVATAR_COLORS.map(c=>(
+            <button key={c} onClick={()=>majProfil({color:c})}
+              style={{width:30,height:30,borderRadius:"50%",background:c,cursor:"pointer",border:(prof.color||AVATAR_COLORS[0])===c?"3px solid #fff":"3px solid transparent"}}/>
+          ))}
+        </div>
+        <label style={{display:"block",padding:"9px",marginBottom:14,borderRadius:10,background:`${t.accent}18`,border:`1px dashed ${t.accent}66`,color:t.accent,fontSize:12,fontWeight:600,textAlign:"center",cursor:envoiPhoto?"wait":"pointer"}}>
+          {envoiPhoto?"Envoi en cours…":"🖼️ Choisir une photo dans ma bibliothèque"}
+          <input type="file" accept="image/*" disabled={envoiPhoto} onChange={choisirPhoto} style={{display:"none"}}/>
+        </label>
+        <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Icône (facultative)</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(42px,1fr))",gap:6}}>
+          {ICONES.map(ic=>(
+            <button key={ic} onClick={()=>majProfil({icone:prof.icone===ic?null:ic})}
+              style={{padding:"6px 0",fontSize:22,lineHeight:1,borderRadius:10,cursor:"pointer",background:prof.icone===ic?`${t.accent}33`:t.bg,border:`1px solid ${prof.icone===ic?t.accent:t.border}`}}>{ic}</button>
+          ))}
+        </div>
+      </div>
       <div style={{color:t.text,fontWeight:700,fontSize:16,marginBottom:4,fontFamily:"Syne,sans-serif"}}>Choisis ton thème</div>
       <div style={{color:t.muted,fontSize:12,marginBottom:14}}>Ton choix est personnel — il ne change pas l'affichage des autres membres.</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -997,7 +1083,7 @@ function VoteTab({currentUser,isAdmin=false,gid}){
   const[champs,setChamps]=useState(VIDE);
   const[saving,setSaving]=useState(false);
   const proposals=useFirebase(chemin(gid,"proposals"),{});
-  const profiles=useFirebase("profiles",{});
+  const profiles=useProfils();
 
   const CATEGORIES=["🍽 Restaurant","🍺 Bar","🌳 Pique-nique","🎭 Autre"];
   const propList=Object.entries(proposals||{}).map(([id,p])=>({id,...p})).sort((a,b)=>{
@@ -1152,7 +1238,7 @@ function VoteTab({currentUser,isAdmin=false,gid}){
                 )}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                <div style={{width:20,height:20,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>{auteur[0]}</div>
+                <Avatar nom={auteur} profiles={profiles} taille={AV.sm} t={t}/>
                 <span style={{color:t.muted,fontSize:11}}>par {auteur}</span>
                 {p.modifiedAt&&<span style={{color:t.muted,fontSize:11,fontStyle:"italic"}}>· modifiée{p.modifiedBy&&p.modifiedBy!==auteur?` par ${p.modifiedBy}`:""}</span>}
               </div>
@@ -1263,7 +1349,7 @@ function HomeTab({currentUser,onNavigate,onLogout,t,profiles,event}){
     <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",padding:"14px 14px 14px",gap:12}}>
       {/* Chip membre */}
       <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:t.card,borderRadius:16,border:`1px solid ${t.border}`}}>
-        <div style={{width:44,height:44,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>{currentUser[0].toUpperCase()}</div>
+        <Avatar nom={currentUser} profiles={profiles} taille={AV.lg} t={t}/>
         <div>
           <div style={{color:t.text,fontWeight:700,fontSize:16}}>Bonjour, {currentUser} !</div>
           <div style={{color:t.muted,fontSize:12}}>Que veux-tu faire ?</div>
@@ -1367,7 +1453,7 @@ function UserApp({currentUser,onLogout}){
   const[tab,setTab]=useState("home");
   const[,rerender]=useState(0);
   const themeData=useFirebase("config/theme",DEFAULT_THEME);
-  const profiles=useFirebase("profiles",{});
+  const profiles=useProfils();
   const appName=useFirebase("config/appName","WhenWeMeet");
   const appSub=useFirebase("config/appSubtitle","Trouvez la date parfaite ensemble");
   usePresence(currentUser);
@@ -1594,6 +1680,7 @@ function AdminTheme({t}){
 
 function AdminUsers({t}){
   const usersObj=useFirebase("users",{});
+  const profiles=useProfils();
   const groupes=useFirebase("annuaire",{});
   const contenu=useFirebase("groupes",{});
   const[newName,setNewName]=useState("");
@@ -1631,7 +1718,7 @@ function AdminUsers({t}){
           return(
             <div key={u}>
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
-                <div style={{width:34,height:34,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",color:t.text,fontWeight:700,fontSize:14,flexShrink:0}}>{u[0]}</div>
+                <Avatar nom={u} profiles={profiles} taille={AV.md} t={t}/>
                 <div style={{flex:1,minWidth:0}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{u}</div><div style={{fontSize:10,color:t.muted}}>Compte géré par Firebase Authentication</div></div>
                 <button onClick={()=>removeUser(u)} style={{background:"none",border:`1px solid ${t.danger}55`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
               </div>
@@ -1644,6 +1731,7 @@ function AdminUsers({t}){
 }
 function AdminGroupes({t}){
   const groupes=useFirebase("annuaire",{});
+  const profiles=useProfils();
   const usersObj=useFirebase("users",{});
   const[newNom,setNewNom]=useState("");
   const[open,setOpen]=useState(null);
@@ -1795,7 +1883,7 @@ function AdminAvail({t,gid}){
               {users.map(u=>{
                 const checked=getSlots(sel)[slot].includes(u);
                 return<button key={u} onClick={()=>toggleUser(sel,slot,u)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:11,background:checked?`${t.green}18`:t.bg,border:`1px solid ${checked?t.green+"66":t.border}`,cursor:"pointer",width:"100%",marginBottom:5}}>
-                  <div style={{width:28,height:28,borderRadius:"50%",background:`${t.accent}33`,display:"flex",alignItems:"center",justifyContent:"center",color:t.text,fontWeight:700,fontSize:12}}>{u[0]}</div>
+                  <Avatar nom={u} profiles={profiles} taille={AV.sm} t={t}/>
                   <span style={{color:t.text,fontSize:13,flex:1}}>{u}</span>
                   <div style={{width:20,height:20,borderRadius:5,background:checked?t.green:t.bg,border:`2px solid ${checked?t.green:t.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{checked&&<span style={{color:"#000",fontSize:11,fontWeight:800}}>✓</span>}</div>
                 </button>;
