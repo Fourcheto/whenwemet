@@ -622,6 +622,241 @@ function FriendsTab({currentUser,gid}){
 }
 
 // ─── Events Tab ───────────────────────────────────────────────────────────────
+// ─── Sorties : photos, avis et etoiles ────────────────────────────────────────
+const MAX_PHOTOS=6;
+
+async function compresserImage(fichier,maxPx=1280,cible=160000){
+  const url=URL.createObjectURL(fichier);
+  try{
+    const img=await new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=url;});
+    let l=img.width,h=img.height;
+    if(l>maxPx||h>maxPx){const r=Math.min(maxPx/l,maxPx/h);l=Math.round(l*r);h=Math.round(h*r);}
+    const c=document.createElement("canvas");c.width=l;c.height=h;
+    const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,l,h);ctx.drawImage(img,0,0,l,h);
+    let q=0.72,data=c.toDataURL("image/jpeg",q);
+    while(data.length>cible&&q>0.35){q-=0.08;data=c.toDataURL("image/jpeg",q);}
+    return data;
+  }finally{URL.revokeObjectURL(url);}
+}
+
+function Etoiles({note,couleur,taille=14}){
+  return(
+    <span style={{whiteSpace:"nowrap",letterSpacing:1}}>
+      {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:taille,color:n<=note?couleur:"#88888844"}}>★</span>)}
+    </span>
+  );
+}
+
+function ChoixEtoiles({note,onChange,couleur,t}){
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:1}}>
+        {[1,2,3,4,5].map(n=>(
+          <button key={n} onClick={()=>onChange(note===n?0:n)} title={`${n} étoile${n>1?"s":""}`}
+            style={{background:"none",border:"none",padding:"2px",cursor:"pointer",fontSize:26,lineHeight:1,color:n<=note?couleur:"#88888844"}}>★</button>
+        ))}
+      </div>
+      <span style={{color:t.muted,fontSize:11}}>{note>0?`${note}/5`:"Pas de note (facultatif)"}</span>
+    </div>
+  );
+}
+
+function CarteSortie({s,gid,currentUser,isAdmin=false,t,onSupprimer}){
+  const[ouvert,setOuvert]=useState(false);
+  const[edition,setEdition]=useState(false);
+  const[texte,setTexte]=useState("");
+  const[note,setNote]=useState(0);
+  const[envoi,setEnvoi]=useState(false);
+  const[apercu,setApercu]=useState(null);
+  const profiles=useFirebase("profiles",{});
+  const photos=useFirebase(ouvert?chemin(gid,`photos/${s.id}`):null,{});
+
+  const avis=s.avis||{};
+  const listeAvis=Object.entries(avis).map(([nom,a])=>({nom,...a})).sort((a,b)=>(b.at||0)-(a.at||0));
+  const notes=listeAvis.map(a=>a.etoiles).filter(n=>n>0);
+  const moyenne=notes.length?notes.reduce((x,y)=>x+y,0)/notes.length:0;
+  const listePhotos=Object.entries(photos||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.at||0)-(b.at||0));
+  const nbPhotos=ouvert?listePhotos.length:(s.nbPhotos||0);
+  const participants=Array.isArray(s.participants)?s.participants:[];
+  const peutDonnerAvis=isAdmin||participants.includes(currentUser);
+  const monAvis=avis[currentUser];
+
+  const couleurDe=(nom)=>{
+    const p=(profiles||{})[nom]||{};
+    return (THEMES[p.theme]||{}).accent||p.color||t.accent;
+  };
+  const maCouleur=couleurDe(currentUser);
+
+  function ouvrirEdition(){
+    setTexte(monAvis?.texte||"");
+    setNote(monAvis?.etoiles||0);
+    setEdition(true);
+    setOuvert(true);
+  }
+  async function enregistrerAvis(){
+    if(!texte.trim()&&note===0)return;
+    await set(ref(db,`groupes/${gid}/sorties/${s.id}/avis/${currentUser}`),{
+      texte:texte.trim()||null,etoiles:note||null,at:Date.now(),
+    });
+    setEdition(false);
+  }
+  async function supprimerAvis(nom){
+    if(!window.confirm(nom===currentUser?"Supprimer ton avis ?":`Supprimer l'avis de ${nom} ?`))return;
+    await remove(ref(db,`groupes/${gid}/sorties/${s.id}/avis/${nom}`));
+    if(nom===currentUser){setTexte("");setNote(0);setEdition(false);}
+  }
+  async function ajouterPhotos(e){
+    const fichiers=[...e.target.files].slice(0,MAX_PHOTOS-listePhotos.length);
+    e.target.value="";
+    if(!fichiers.length)return;
+    setEnvoi(true);
+    let ajoutees=0;
+    try{
+      for(const f of fichiers){
+        const data=await compresserImage(f);
+        await push(ref(db,`groupes/${gid}/photos/${s.id}`),{data,at:Date.now()});
+        ajoutees++;
+      }
+      await set(ref(db,`groupes/${gid}/sorties/${s.id}/nbPhotos`),listePhotos.length+ajoutees);
+    }catch{
+      window.alert("Une photo n'a pas pu être ajoutée.");
+    }finally{setEnvoi(false);}
+  }
+  async function supprimerPhoto(id){
+    if(!window.confirm("Supprimer cette photo ?"))return;
+    await remove(ref(db,`groupes/${gid}/photos/${s.id}/${id}`));
+    await set(ref(db,`groupes/${gid}/sorties/${s.id}/nbPhotos`),Math.max(0,listePhotos.length-1));
+  }
+
+  const dateTexte=new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const creneau=s.slot===("midi")?"🍽 Midi":s.slot==="soir"?"🌙 Soir":s.slot?"🍽🌙 Midi & Soir":"";
+
+  return(
+    <div style={{padding:"14px",marginBottom:10,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:4,overflowWrap:"anywhere"}}>{s.title}</div>
+          <div style={{color:t.muted,fontSize:12,marginBottom:6}}>{dateTexte}{creneau&&` · ${creneau}`}</div>
+        </div>
+        {isAdmin&&onSupprimer&&(
+          <button onClick={onSupprimer} title="Supprimer la sortie" style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer",flexShrink:0}}>✕</button>
+        )}
+      </div>
+
+      {(notes.length>0||nbPhotos>0||listeAvis.length>0)&&(
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",margin:"2px 0 8px"}}>
+          {notes.length>0&&(
+            <span style={{display:"inline-flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:20,background:`${t.accent}18`}}>
+              <Etoiles note={Math.round(moyenne)} couleur={t.accent}/>
+              <span style={{color:t.text,fontSize:12,fontWeight:700}}>{moyenne.toFixed(1).replace(".",",")}</span>
+              <span style={{color:t.muted,fontSize:11}}>/5</span>
+            </span>
+          )}
+          {listeAvis.length>0&&<span style={{color:t.muted,fontSize:11}}>💬 {listeAvis.length} avis</span>}
+          {nbPhotos>0&&<span style={{color:t.muted,fontSize:11}}>📷 {nbPhotos} photo{nbPhotos>1?"s":""}</span>}
+        </div>
+      )}
+
+      {participants.length>0&&(
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+          {participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}
+        </div>
+      )}
+
+      <button onClick={()=>setOuvert(o=>!o)} style={{width:"100%",padding:"8px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+        {ouvert?"Masquer les souvenirs":"📷 Photos et avis"}
+      </button>
+
+      {ouvert&&(
+        <div style={{marginTop:12}}>
+          {isAdmin&&(
+            <div style={{marginBottom:12}}>
+              {listePhotos.length<MAX_PHOTOS?(
+                <label style={{display:"block",padding:"9px",borderRadius:10,background:`${t.accent}18`,border:`1px dashed ${t.accent}66`,color:t.accent,fontSize:12,fontWeight:600,textAlign:"center",cursor:envoi?"wait":"pointer"}}>
+                  {envoi?"Envoi en cours…":`➕ Ajouter des photos (${listePhotos.length}/${MAX_PHOTOS})`}
+                  <input type="file" accept="image/*" multiple disabled={envoi} onChange={ajouterPhotos} style={{display:"none"}}/>
+                </label>
+              ):(
+                <div style={{color:t.muted,fontSize:11,textAlign:"center"}}>Maximum de {MAX_PHOTOS} photos atteint.</div>
+              )}
+            </div>
+          )}
+
+          {listePhotos.length>0&&(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))",gap:6,marginBottom:14}}>
+              {listePhotos.map(ph=>(
+                <div key={ph.id} style={{position:"relative",paddingTop:"100%",borderRadius:10,overflow:"hidden",background:t.bg}}>
+                  <img src={ph.data} alt="" onClick={()=>setApercu(ph.data)} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",cursor:"zoom-in"}}/>
+                  {isAdmin&&(
+                    <button onClick={()=>supprimerPhoto(ph.id)} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"#000000aa",border:"none",color:"#fff",fontSize:12,cursor:"pointer",lineHeight:1}}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{color:t.muted,fontSize:11,fontWeight:700,marginBottom:8}}>💬 LES AVIS</div>
+
+          {listeAvis.length===0&&!edition&&(
+            <div style={{color:t.muted,fontSize:12,marginBottom:10}}>Aucun avis pour l'instant.</div>
+          )}
+
+          {listeAvis.map(a=>(
+            <div key={a.nom} style={{background:t.bg,borderRadius:12,padding:"10px 12px",marginBottom:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",background:couleurDe(a.nom),display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700,flexShrink:0}}>{a.nom[0]}</div>
+                <span style={{color:t.text,fontSize:12,fontWeight:600}}>{a.nom}</span>
+                {a.etoiles>0&&<Etoiles note={a.etoiles} couleur={couleurDe(a.nom)}/>}
+                <span style={{flex:1}}/>
+                {(a.nom===currentUser||isAdmin)&&(
+                  <button onClick={()=>supprimerAvis(a.nom)} style={{background:"none",border:"none",color:t.danger,fontSize:12,cursor:"pointer"}}>✕</button>
+                )}
+                {a.nom===currentUser&&(
+                  <button onClick={ouvrirEdition} style={{background:"none",border:"none",color:t.accent,fontSize:12,cursor:"pointer"}}>✏️</button>
+                )}
+              </div>
+              {a.texte&&<div style={{color:t.text,fontSize:13,lineHeight:1.45,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{a.texte}</div>}
+            </div>
+          ))}
+
+          {peutDonnerAvis&&!edition&&!monAvis&&(
+            <button onClick={ouvrirEdition} style={{width:"100%",padding:"10px",borderRadius:10,background:`${t.accent}18`,border:`1px solid ${t.accent}55`,color:t.accent,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              ✍️ Laisser mon avis
+            </button>
+          )}
+
+          {edition&&(
+            <div style={{background:t.bg,border:`1px solid ${t.accent}44`,borderRadius:12,padding:"12px",marginTop:4}}>
+              <div style={{color:t.muted,fontSize:11,fontWeight:600,marginBottom:6}}>Ton avis sur ce moment</div>
+              <textarea value={texte} onChange={e=>setTexte(e.target.value)} placeholder="Qu'as-tu pensé de cette sortie ?"
+                style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:10,background:t.card,border:`1px solid ${t.border}`,color:t.text,fontSize:13,minHeight:80,resize:"vertical",lineHeight:1.45,fontFamily:"inherit",outline:"none"}}/>
+              <div style={{color:t.muted,fontSize:11,fontWeight:600,margin:"12px 0 4px"}}>Ta satisfaction</div>
+              <ChoixEtoiles note={note} onChange={setNote} couleur={maCouleur} t={t}/>
+              <div style={{display:"flex",gap:8,marginTop:12}}>
+                <button onClick={enregistrerAvis} disabled={!texte.trim()&&note===0}
+                  style={{flex:1,padding:"10px",borderRadius:10,background:(texte.trim()||note>0)?t.accent:t.border,border:"none",color:"#fff",fontWeight:700,fontSize:13,cursor:(texte.trim()||note>0)?"pointer":"not-allowed"}}>
+                  ✅ Enregistrer
+                </button>
+                <button onClick={()=>setEdition(false)} style={{padding:"10px 14px",borderRadius:10,background:"none",border:`1px solid ${t.border}`,color:t.muted,fontSize:12,cursor:"pointer"}}>Annuler</button>
+              </div>
+            </div>
+          )}
+
+          {!peutDonnerAvis&&(
+            <div style={{color:t.muted,fontSize:11,fontStyle:"italic",marginTop:6}}>Seuls les participants peuvent laisser un avis.</div>
+          )}
+        </div>
+      )}
+
+      {apercu&&(
+        <div onClick={()=>setApercu(null)} style={{position:"fixed",inset:0,background:"#000000e8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,cursor:"zoom-out"}}>
+          <img src={apercu} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:12}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EventsTab({currentUser,gid}){
   const t=C();
   const[subTab,setSubTab]=useState("prochain");
@@ -703,11 +938,7 @@ function EventsTab({currentUser,gid}){
           </div>
         ):(
           sortieList.map(s=>(
-            <div key={s.id} style={{padding:"14px",marginBottom:10,background:t.card,borderRadius:14,border:`1px solid ${t.border}`}}>
-              <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:5}}>{s.title}</div>
-              <div style={{color:t.muted,fontSize:12,marginBottom:6}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}{s.slot&&` · ${s.slot==="midi"?"🍽 Midi":s.slot==="soir"?"🌙 Soir":"🍽🌙 Midi & Soir"}`}</div>
-              {s.participants&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{s.participants.map(p=><span key={p} style={{padding:"2px 7px",borderRadius:10,background:`${t.accent}15`,color:t.muted,fontSize:11}}>{p}</span>)}</div>}
-            </div>
+            <CarteSortie key={s.id} s={s} gid={gid} currentUser={currentUser} t={t}/>
           ))
         )
       )}
@@ -1704,7 +1935,12 @@ function AdminSorties({t,gid}){
     await push(ref(db,`groupes/${gid}/sorties`),{date:selDate,title:title.trim(),slot:selSlot,participants,archivedAt:Date.now()});
     setSaved(true);setTitle("");setSelDate("");setTimeout(()=>setSaved(false),2000);
   }
-  async function deleteSortie(id){if(!gid)return;await remove(ref(db,`groupes/${gid}/sorties/${id}`));}
+  async function deleteSortie(id){
+    if(!gid)return;
+    if(!window.confirm("Supprimer cette sortie, ses photos et ses avis ?"))return;
+    await remove(ref(db,`groupes/${gid}/photos/${id}`));
+    await remove(ref(db,`groupes/${gid}/sorties/${id}`));
+  }
   return(
     <div style={{padding:"8px 0 20px"}}>
       <ACard t={t}>
@@ -1730,10 +1966,7 @@ function AdminSorties({t,gid}){
         <ACard t={t}>
           <ALabel t={t}>{sortieList.length} sortie{sortieList.length>1?"s":""} archivée{sortieList.length>1?"s":""}</ALabel>
           {sortieList.map(s=>(
-            <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:`1px solid ${t.border}22`}}>
-              <div style={{flex:1}}><div style={{color:t.text,fontSize:13,fontWeight:600}}>{s.title}</div><div style={{color:t.muted,fontSize:11}}>{new Date(s.date+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div></div>
-              <button onClick={()=>deleteSortie(s.id)} style={{background:"none",border:`1px solid ${t.danger}44`,borderRadius:8,padding:"4px 8px",color:t.danger,fontSize:12,cursor:"pointer"}}>✕</button>
-            </div>
+            <CarteSortie key={s.id} s={s} gid={gid} currentUser="admin" isAdmin t={t} onSupprimer={()=>deleteSortie(s.id)}/>
           ))}
         </ACard>
       )}
